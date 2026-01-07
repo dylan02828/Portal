@@ -40,75 +40,115 @@ struct ManageStorageView: View {
     // MARK: - Storage Overview Section
     private var storageOverviewSection: some View {
         Section {
-            VStack(spacing: 0) {
+            VStack(spacing: 16) {
+                // Header with icon
+                HStack {
+                    Image(systemName: "internaldrive")
+                        .font(.system(size: 28))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.blue, Color.cyan],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    Text(.localized("Device Storage"))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    
+                    Spacer()
+                }
+                .padding(.bottom, 8)
+                
                 HStack(alignment: .top, spacing: 0) {
                     // Used column
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         Text(.localized("Used"))
                             .font(.caption)
+                            .fontWeight(.medium)
                             .foregroundStyle(.secondary)
                         Text(formatBytes(usedSpace))
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.blue)
                     }
                     .frame(maxWidth: .infinity)
+                    
+                    // Divider
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(width: 1, height: 50)
                     
                     // Total column
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         Text(.localized("Total"))
                             .font(.caption)
+                            .fontWeight(.medium)
                             .foregroundStyle(.secondary)
                         Text(formatBytes(totalSpace))
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
                     }
                     .frame(maxWidth: .infinity)
                     
+                    // Divider
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(width: 1, height: 50)
+                    
                     // Available column
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         Text(.localized("Available"))
                             .font(.caption)
+                            .fontWeight(.medium)
                             .foregroundStyle(.secondary)
                         Text(formatBytes(availableSpace))
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundStyle(.green)
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .padding(.vertical, 12)
+                .padding(.vertical, 8)
                 
-                Divider()
-                    .padding(.vertical, 8)
-                
-                // Progress bar or visual representation
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.secondary.opacity(0.2))
-                            .frame(height: 8)
-                        
-                        if totalSpace > 0 {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.blue,
-                                            Color.cyan,
-                                            Color.purple.opacity(0.8),
-                                            Color.pink.opacity(0.6)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
+                // Progress bar with improved design
+                VStack(alignment: .leading, spacing: 8) {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.secondary.opacity(0.15))
+                                .frame(height: 12)
+                            
+                            if totalSpace > 0 {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.blue,
+                                                Color.cyan,
+                                                Color.purple.opacity(0.8)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
                                     )
-                                )
-                                .frame(width: geometry.size.width * CGFloat(usedSpace) / CGFloat(totalSpace), height: 8)
-                                .shadow(color: Color.blue.opacity(0.4), radius: 4, x: 0, y: 2)
+                                    .frame(width: geometry.size.width * CGFloat(usedSpace) / CGFloat(totalSpace), height: 12)
+                                    .shadow(color: Color.blue.opacity(0.3), radius: 3, x: 0, y: 1)
+                            }
                         }
                     }
+                    .frame(height: 12)
+                    
+                    // Percentage indicator
+                    if totalSpace > 0 {
+                        let percentage = Int((Double(usedSpace) / Double(totalSpace)) * 100)
+                        Text("\(percentage)% used")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .frame(height: 8)
-                .padding(.bottom, 8)
             }
+            .padding(.vertical, 8)
         } footer: {
             Text(.localized("Shows storage used by this app on this device"))
                 .font(.caption)
@@ -119,36 +159,50 @@ struct ManageStorageView: View {
     // MARK: - Storage Breakdown Section
     private var storageBreakdownSection: some View {
         Section {
-            VStack(spacing: 0) {
-                storageBreakdownRow(label: .localized("Signed Apps"), size: signedAppsSize, icon: "doc.badge.checkmark")
-                Divider()
-                storageBreakdownRow(label: .localized("Imported Apps"), size: importedAppsSize, icon: "square.and.arrow.down")
-                Divider()
-                storageBreakdownRow(label: .localized("Certificates"), size: certificatesSize, icon: "key.horizontal")
-                Divider()
-                storageBreakdownRow(label: .localized("Cache"), size: cacheSize, icon: "arrow.clockwise.circle")
-                Divider()
-                storageBreakdownRow(label: .localized("Archives"), size: archivesSize, icon: "archivebox")
-                Divider()
-                    .padding(.vertical, 8)
+            VStack(spacing: 12) {
+                storageBreakdownRow(label: .localized("Signed Apps"), size: signedAppsSize, icon: "doc.badge.checkmark", color: .blue)
+                storageBreakdownRow(label: .localized("Imported Apps"), size: importedAppsSize, icon: "square.and.arrow.down", color: .green)
+                storageBreakdownRow(label: .localized("Certificates"), size: certificatesSize, icon: "key.horizontal", color: .orange)
+                storageBreakdownRow(label: .localized("Cache"), size: cacheSize, icon: "arrow.clockwise.circle", color: .purple)
+                storageBreakdownRow(label: .localized("Archives"), size: archivesSize, icon: "archivebox", color: .cyan)
                 
-                // Total row - emphasized
-                HStack {
-                    Image(systemName: "chart.bar.fill")
-                        .foregroundStyle(.tint)
-                        .font(.system(size: 16))
+                Divider()
+                    .padding(.vertical, 4)
+                
+                // Total row - emphasized with better design
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.accentColor.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                        
+                        Image(systemName: "chart.bar.fill")
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.accentColor, Color.accentColor.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    
                     Text(.localized("Total"))
                         .font(.system(.body, design: .default, weight: .bold))
                         .foregroundStyle(.primary)
+                    
                     Spacer()
+                    
                     Text(formatBytes(totalFeatherStorage))
-                        .font(.system(.body, design: .default, weight: .bold))
-                        .foregroundStyle(.primary)
+                        .font(.system(.title3, design: .rounded, weight: .bold))
+                        .foregroundStyle(.accentColor)
                 }
+                .padding(.vertical, 8)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
         } header: {
             Label(.localized("Storage Breakdown"), systemImage: "chart.pie")
+                .font(.headline)
         } footer: {
             Text(.localized("Detailed breakdown of storage used by this app"))
                 .font(.caption)
@@ -159,12 +213,47 @@ struct ManageStorageView: View {
     // MARK: - Storage Cleanup Section
     private var storageCleanupSection: some View {
         Section {
-            VStack(spacing: 0) {
-                // Cleanup period selector
+            VStack(spacing: 16) {
+                // Cleanup icon and header
                 HStack {
-                    Text(.localized("Remove items older than"))
-                        .foregroundStyle(.primary)
+                    ZStack {
+                        Circle()
+                            .fill(Color.orange.opacity(0.15))
+                            .frame(width: 44, height: 44)
+                        
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.orange, Color.orange.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(.localized("Smart Cleanup"))
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        
+                        Text(.localized("Free up space automatically"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
                     Spacer()
+                }
+                
+                Divider()
+                
+                // Cleanup period selector
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(.localized("Remove items older than"))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
+                    
                     Menu {
                         ForEach(CleanupPeriod.allCases, id: \.self) { period in
                             Button(period.displayName) {
@@ -173,56 +262,91 @@ struct ManageStorageView: View {
                             }
                         }
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack {
                             Text(cleanupPeriod.displayName)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.primary)
+                            Spacer()
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.caption)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.secondary)
                         }
+                        .padding(12)
+                        .background(Color(uiColor: .tertiarySystemGroupedBackground))
+                        .cornerRadius(8)
                     }
                 }
-                .padding(.vertical, 8)
                 
                 Divider()
-                    .padding(.vertical, 8)
                 
-                // Description
-                Text(.localized("This will remove temporary files, cached data, and old work files that are no longer needed."))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 4)
+                // Description and reclaimable space
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.blue)
+                        
+                        Text(.localized("This will remove temporary files, cached data, and old work files that are no longer needed."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    
+                    // Reclaimable space highlight with better design
+                    HStack(spacing: 12) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.orange)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(.localized("Can be removed"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            
+                            Text(formatBytes(reclaimableSpace))
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.orange)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(10)
+                }
                 
-                // Reclaimable space highlight
-                Text("\(formatBytes(reclaimableSpace)) can be removed")
-                    .font(.subheadline)
-                    .foregroundStyle(.orange)
-                    .fontWeight(.medium)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
-                
-                Divider()
-                    .padding(.vertical, 8)
-                
-                // Cleanup button
+                // Cleanup button with improved design
                 Button {
                     performCleanup()
                 } label: {
                     HStack {
-                        Spacer()
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 16, weight: .semibold))
+                        
                         Text(.localized("Clean Up Storage"))
-                            .fontWeight(.medium)
+                            .font(.headline)
+                        
                         Spacer()
                     }
-                    .padding(.vertical, 4)
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 14)
+                    .padding(.horizontal, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.orange, Color.orange.opacity(0.8)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(10)
                 }
                 .disabled(reclaimableSpace == 0 || isCalculating)
                 .opacity(reclaimableSpace == 0 || isCalculating ? 0.5 : 1.0)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
         } header: {
             Label(.localized("Storage Cleanup"), systemImage: "arrow.clockwise")
+                .font(.headline)
         } footer: {
             Text(.localized("Free up space by removing temporary files and old data."))
                 .font(.caption)
@@ -348,18 +472,35 @@ struct ManageStorageView: View {
     }
     
     // MARK: - Helper Views
-    private func storageBreakdownRow(label: LocalizedStringKey, size: Int64, icon: String) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundStyle(.tint)
-                .font(.system(size: 16))
+    private func storageBreakdownRow(label: LocalizedStringKey, size: Int64, icon: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 36, height: 36)
+                
+                Image(systemName: icon)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [color, color.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            
             Text(label)
+                .font(.system(size: 15))
                 .foregroundStyle(.primary)
+            
             Spacer()
+            
             Text(formatBytes(size))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
     }
     
     private func cleanupOptionButton(
