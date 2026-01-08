@@ -78,9 +78,6 @@ struct SettingsView: View {
                     NavigationLink(destination: InstallationView()) {
                         ConditionalLabel(title: .localized("Installation"), systemImage: "arrow.down.circle")
                     }
-                    NavigationLink(destination: NotificationsView()) {
-                        ConditionalLabel(title: .localized("Notifications"), systemImage: "bell.badge.fill")
-                    }
                 } footer: {
                     Text(.localized("Configure the apps way of installing, its zip compression levels, custom modifications to apps, and enable experimental features."))
                 }
