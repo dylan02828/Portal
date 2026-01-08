@@ -55,7 +55,7 @@ struct OnboardingView: View {
                         FeatureRow(
                             icon: "square.stack.3d.up.fill",
                             title: "Browse Sources",
-                            description: "Discover thousands of apps",
+                            description: "Add surces to Portal and install apps with ease",
                             delay: 0.2
                         )
                         

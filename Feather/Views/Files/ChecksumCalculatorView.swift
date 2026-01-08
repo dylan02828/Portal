@@ -60,7 +60,7 @@ struct ChecksumCalculatorView: View {
                     } header: {
                         Text(.localized("Checksums"))
                     } footer: {
-                        Text(.localized("Tap any checksum to copy it to clipboard"))
+                        Text(.localized("Tap any checksum to copy it to the clipboard"))
                     }
                 }
             }

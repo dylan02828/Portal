@@ -46,7 +46,7 @@ struct ServerView: View {
 	
 	private let _serverMethods: [(name: String, description: String)] = [
 		(.localized("Fully Local"), .localized("Signs and installs apps entirely on your device without external servers")),
-		(.localized("Semi Local"), .localized("Signs locally but uses a local server for installation via Wi-Fi"))
+		(.localized("Semi Local"), .localized("Signs locally but uses a local server for installation via Wi-Fi. This method is more reliable."))
 	]
 	
 	private let _dataService = NBFetchService()
@@ -162,7 +162,7 @@ struct ServerView: View {
 						.opacity(_showSuccessAnimation ? 1.0 : 0.0)
 						.animation(.spring(response: 0.6, dampingFraction: 0.7), value: _showSuccessAnimation)
 						
-						Text(.localized("SSL certificates updated successfully!"))
+						Text(.localized("SSL Certificates Updated Successfully!"))
 							.font(.headline)
 							.foregroundStyle(.green)
 							.opacity(_showSuccessAnimation ? 1.0 : 0.0)

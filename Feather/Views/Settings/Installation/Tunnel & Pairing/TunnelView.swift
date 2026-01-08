@@ -26,7 +26,7 @@ struct TunnelView: View {
 							)
 						)
 				} else {
-					Text(.localized("No pairing file found, please import it."))
+					Text(.localized("No pairing file found, please import it to continue the process."))
 						.foregroundStyle(
 							LinearGradient(
 								colors: [Color.orange, Color.orange.opacity(0.8)],
@@ -64,7 +64,7 @@ struct TunnelView: View {
 								.font(.subheadline)
 								.fontWeight(.semibold)
 								.foregroundStyle(.primary)
-							Text(.localized("Required for device connection"))
+							Text(.localized("Required For Device Connection"))
 								.font(.caption)
 								.foregroundStyle(.secondary)
 						}
@@ -115,7 +115,7 @@ struct TunnelView: View {
 								.font(.subheadline)
 								.fontWeight(.semibold)
 								.foregroundStyle(.primary)
-							Text(.localized("Reconnect to device"))
+							Text(.localized("Reconnect To Device"))
 								.font(.caption)
 								.foregroundStyle(.secondary)
 						}
@@ -194,11 +194,11 @@ struct TunnelView: View {
 							}
 							
 							VStack(alignment: .leading, spacing: 2) {
-								Text(.localized("Connect to LocalDevVPN"))
+								Text(.localized("Connect To LocalDevVPN"))
 									.font(.subheadline)
 									.fontWeight(.semibold)
 									.foregroundStyle(.primary)
-								Text(.localized("Enable VPN connection"))
+								Text(.localized("Enable VPN Connection"))
 									.font(.caption)
 									.foregroundStyle(.secondary)
 							}
@@ -238,7 +238,7 @@ struct TunnelView: View {
 									.font(.subheadline)
 									.fontWeight(.semibold)
 									.foregroundStyle(.primary)
-								Text(.localized("Required for installation"))
+								Text(.localized("Required For Installation"))
 									.font(.caption)
 									.foregroundStyle(.secondary)
 							}

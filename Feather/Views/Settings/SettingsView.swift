@@ -97,7 +97,7 @@ struct SettingsView: View {
                         Button {
                             UIApplication.open("https://github.com/aoyn1xw/Portal/releases/tag/v0.1")
                         } label: {
-                            ConditionalLabel(title: .localized("Check for Updates"), systemImage: "arrow.down.circle")
+                            ConditionalLabel(title: .localized("Check For Updates"), systemImage: "arrow.down.circle")
                         }
                     } footer: {
                         Text(.localized("Customize your app icon, manage storage, and check for updates."))
