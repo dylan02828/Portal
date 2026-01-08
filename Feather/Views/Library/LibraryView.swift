@@ -174,8 +174,9 @@ struct LibraryView: View {
 										selectedInstallAppPresenting: $_selectedInstallAppPresenting
 									)
 									.compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
-									.listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+									.listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
 									.listRowSeparator(.hidden)
+									.listRowBackground(Color.clear)
 									.swipeActions(edge: .trailing, allowsFullSwipe: false) {
 										Button(role: .destructive) {
 											Storage.shared.deleteApp(for: app)
@@ -196,7 +197,6 @@ struct LibraryView: View {
 							}
 							.listStyle(.plain)
 							.scrollContentBackground(.hidden)
-							.padding(.horizontal, 20)
 						}
 						
 						Spacer(minLength: 20)
