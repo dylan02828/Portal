@@ -76,7 +76,7 @@ struct CertificateQuickAddView: View {
                     Section {
                         HStack {
                             ProgressView()
-                            Text(.localized("Adding certificate..."))
+                            Text(.localized("Adding Certificate..."))
                                 .foregroundStyle(.secondary)
                         }
                     }

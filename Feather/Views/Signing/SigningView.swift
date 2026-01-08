@@ -226,7 +226,7 @@ struct SigningView: View {
 			Button(.localized("Save")) { }
 		}
 		.onAppear {
-			// ppq protection
+			// ppq protection (previously broken lmao)
 			if
 				_optionsManager.options.ppqProtection,
 				let identifier = app.identifier,
@@ -520,7 +520,7 @@ extension SigningView {
 							)
 						} label: {
 							HStack {
-								Label(.localized("Frameworks & PlugIns"), systemImage: "cube.box")
+								Label(.localized("Frameworks & Plugins"), systemImage: "cube.box")
 								Spacer()
 								Image(systemName: "chevron.right")
 									.font(.caption)

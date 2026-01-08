@@ -239,7 +239,7 @@ extension CertificatesView {
 			_exportEntitlements(for: cert)
 		}
 		Divider()
-		Button(.localized("Check Revokage"), systemImage: "person.text.rectangle") {
+		Button(.localized("Check Revokage (Beta)"), systemImage: "person.text.rectangle") {
 			Storage.shared.revokagedCertificate(for: cert)
 		}
 	}

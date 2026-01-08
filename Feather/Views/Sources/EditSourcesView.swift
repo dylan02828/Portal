@@ -74,7 +74,7 @@ struct EditSourcesView: View {
 					}
 				}
 			} message: {
-				Text(.localized("Are you sure you want to delete this source? This action cannot be undone."))
+				Text(.localized("Are you sure you want to delete this source?"))
 			}
 		}
 	}
@@ -162,7 +162,7 @@ struct EditSourcesView: View {
 			ContentUnavailableView {
 				ConditionalLabel(title: .localized("No Sources"), systemImage: "globe.desk.fill")
 			} description: {
-				Text(.localized("Add sources from the home screen to get started."))
+				Text(.localized("Add sources from the Home Screen to get started."))
 			}
 		} else {
 			VStack(spacing: 12) {
@@ -171,7 +171,7 @@ struct EditSourcesView: View {
 					.foregroundStyle(.secondary)
 				Text(.localized("No Sources"))
 					.font(.headline)
-				Text(.localized("Add sources from the home screen to get started."))
+				Text(.localized("Add sources from the Home Screen to get started."))
 					.font(.subheadline)
 					.foregroundStyle(.secondary)
 					.multilineTextAlignment(.center)

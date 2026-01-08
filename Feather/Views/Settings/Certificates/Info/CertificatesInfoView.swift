@@ -22,7 +22,7 @@ struct EntitlementMapping {
 			"com.apple.developer.pass-type-identifiers": "Pass Type Identifiers",
 			"com.apple.developer.siri": "Siri",
 			"com.apple.developer.usernotifications.filtering": "User Notifications Filtering",
-			"com.apple.developer.usernotifications.time-sensitive": "Time-Sensitive Notifications",
+			"com.apple.developer.usernotifications.time-sensitive": "Time Sensitive Notifications",
 			"com.apple.external-accessory.wireless-configuration": "External Accessory Wireless Configuration",
 			"com.apple.security.application-groups": "App Groups",
 			"keychain-access-groups": "Keychain Access Groups",
@@ -47,7 +47,7 @@ struct EntitlementMapping {
 			"com.apple.developer.carplay-navigation": "CarPlay Navigation",
 			"com.apple.developer.carplay-parking": "CarPlay Parking",
 			"com.apple.developer.carplay-playback": "CarPlay Playback",
-			"com.apple.developer.coremedia.hls.low-latency": "Low-Latency HLS",
+			"com.apple.developer.coremedia.hls.low-latency": "Low Latency HLS",
 			"com.apple.developer.weatherkit": "WeatherKit"
 		]
 		return mappings[entitlement] ?? entitlement

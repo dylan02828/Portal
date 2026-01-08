@@ -26,7 +26,7 @@ struct GuideDetailView: View {
             if isLoading {
                 VStack(spacing: 20) {
                     ProgressView()
-                    Text("Loading guide...")
+                    Text("Loading Guide...")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

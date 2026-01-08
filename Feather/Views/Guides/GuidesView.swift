@@ -135,7 +135,7 @@ struct GuidesView: View {
                     } header: {
                         Text("Available Guides")
                     } footer: {
-                        Text("Guides fetched from the WSF repository.")
+                        Text("Read guides for helpful tips and tools.")
                     }
                 }
                 .refreshable {

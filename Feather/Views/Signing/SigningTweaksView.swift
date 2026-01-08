@@ -109,7 +109,7 @@ struct SigningTweaksView: View {
 									)
 							}
 							
-							Text(verbatim: .localized("No files chosen."))
+							Text(verbatim: .localized("No Files Chosen"))
 								.font(.subheadline)
 								.foregroundStyle(
 									LinearGradient(
@@ -169,7 +169,7 @@ extension SigningTweaksView {
 			}
 			
 			do {
-				// Extract dylibs from default frameworks (handles both .dylib and .deb files)
+				// finally ffs ts works 
 				let (dylibURLs, tempDir) = try await _defaultFrameworksManager.extractDylibsFromFrameworks()
 				tempDirToCleanup = tempDir
 				
@@ -208,7 +208,7 @@ extension SigningTweaksView {
 						// Show info alert if all frameworks were already added
 						UIAlertController.showAlertWithOk(
 							title: .localized("Info"),
-							message: .localized("All default frameworks are already added")
+							message: .localized("All default frameworks are already added to this app")
 						)
 					}
 				}

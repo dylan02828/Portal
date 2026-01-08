@@ -125,7 +125,7 @@ extension DefaultFrameworksView {
 					.font(.system(size: 40))
 					.foregroundColor(.secondary.opacity(0.6))
 				
-				Text(.localized("No default frameworks."))
+				Text(.localized("No Default Frameworks."))
 					.font(.subheadline)
 					.foregroundColor(.secondary)
 				

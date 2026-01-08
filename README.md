@@ -75,6 +75,7 @@ Since itms-services initiates the install automatically, we don't need to do any
 Due to how it works right now we need both a VPN and a lockdownd pairing file, this means you will need a computer for its initial setup. Though, if you don't want to do these you can just use the server way of installing instead (but at a cost of less reliability). 
 
 ## Credits
+- Made by the [WSF Team](https://wsfteam.xyz)
 
 - Original [Feather](https://github.com/khcrysalis/Feather) project by [khcrysalis](https://github.com/khcrysalis)
 

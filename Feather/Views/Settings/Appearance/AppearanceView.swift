@@ -132,7 +132,7 @@ struct AppearanceView: View {
 					}
 				}
 			} footer: {
-				Text(.localized("When disabled, news from sources will not be displayed in the app."))
+				Text(.localized("When disabled, news from sources will not be displayed in the Sources section."))
 			}
 			
 			NBSection(.localized("Status Bar")) {
@@ -155,7 +155,7 @@ struct AppearanceView: View {
 				NBSection(.localized("Experiments")) {
 					Toggle(.localized("Enable Liquid Glass"), isOn: $_ignoreSolariumLinkedOnCheck)
 				} footer: {
-					Text(.localized("This enables liquid glass for this app, this requires a restart of the app to take effect."))
+					Text(.localized("This enables Liquid Glass for this app, this requires a restart of the app to take effect."))
 				}
 			}
 		}

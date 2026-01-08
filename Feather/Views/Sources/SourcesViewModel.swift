@@ -156,7 +156,7 @@ final class RepositoryCacheManager {
 		if let attributes = try? fileManager.attributesOfItem(atPath: filePath.path),
 		   let modificationDate = attributes[.modificationDate] as? Date {
 			if Date().timeIntervalSince(modificationDate) > cacheExpirationInterval {
-				// Cache expired, remove it
+				// if the cache expired, remove it to save space
 				try? fileManager.removeItem(at: filePath)
 				return nil
 			}

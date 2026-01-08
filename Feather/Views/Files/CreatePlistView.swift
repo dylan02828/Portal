@@ -88,7 +88,7 @@ struct CreatePlistView: View {
                             Image(systemName: "info.circle.fill")
                                 .font(.caption2)
                                 .foregroundStyle(Color.accentColor)
-                            Text(.localized("XML format is human-readable, Binary format is more compact"))
+                            Text(.localized("XML format is human readable, Binary format is more compact"))
                                 .font(.caption2)
                         }
                     }

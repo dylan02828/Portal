@@ -37,13 +37,13 @@ struct CertificatesAddView: View {
 				
 				Form {
 					Section {
-						_importButton(.localized("Import Certificate File"), file: _p12URL, iconName: "doc.badge.key.fill") {
+						_importButton(.localized("Import P12 File"), file: _p12URL, iconName: "doc.badge.key.fill") {
 							_isImportingP12Presenting = true
 						}
 						_importButton(.localized("Import Provisioning File"), file: _provisionURL, iconName: "doc.fill.badge.gearshape") {
 							_isImportingMobileProvisionPresenting = true
 						}
-						_importButton(.localized("Import ZIP Certificate"), file: nil, iconName: "doc.zipper.fill", showCheckmark: false) {
+						_importButton(.localized("Import From ZIP"), file: nil, iconName: "doc.zipper.fill", showCheckmark: false) {
 							_isImportingZipPresenting = true
 						}
 					} header: {
@@ -326,7 +326,7 @@ enum CertificateImportError: LocalizedError {
 		case .missingCertificateFiles(let files):
 			return String(format: NSLocalizedString("Cannot find certificate files in uploaded ZIP. Missing: %@", comment: ""), files)
 		case .extractionFailed:
-			return NSLocalizedString("Failed to extract the ZIP file. The file may be corrupted or password-protected.", comment: "")
+			return NSLocalizedString("Failed to extract the ZIP file. The file may be corrupted or password protected.", comment: "")
 		}
 	}
 }

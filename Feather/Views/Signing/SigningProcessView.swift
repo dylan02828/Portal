@@ -253,7 +253,7 @@ struct SigningProcessView: View {
     }
     
     func startSigningSimulation() {
-        // Simulate signing process
+        // logs (fake logging, UI looks only)
         let steps = [
             "Extracting IPA...",
             "Verifying entitlements...",

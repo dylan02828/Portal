@@ -124,7 +124,7 @@ struct AppearanceContentPanel: View {
                         Text("Both").tag("both")
                     }
                     
-                    Toggle("Auto Color (by level)", isOn: $viewModel.batteryUseAutoColor)
+                    Toggle("Auto Color (By Level)", isOn: $viewModel.batteryUseAutoColor)
                     
                     if !viewModel.batteryUseAutoColor {
                         Toggle("Use Accent Color", isOn: $viewModel.batteryAccentColored)

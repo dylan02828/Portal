@@ -160,7 +160,7 @@ struct BatchRenameView: View {
         
         Stepper(value: $startNumber, in: 1...9999) {
             HStack {
-                Text(.localized("Start from"))
+                Text(.localized("Start From"))
                 Spacer()
                 Text("\(startNumber)")
                     .foregroundStyle(.secondary)
@@ -230,7 +230,7 @@ struct BatchRenameView: View {
                         throw NSError(
                             domain: "BatchRename",
                             code: -1,
-                            userInfo: [NSLocalizedDescriptionKey: "File '\(newName)' already exists"]
+                            userInfo: [NSLocalizedDescriptionKey: "File '\(newName)' Already Exists"]
                         )
                     }
                     

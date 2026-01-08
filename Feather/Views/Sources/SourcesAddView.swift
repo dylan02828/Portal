@@ -207,7 +207,7 @@ struct SourcesAddView: View {
 						guard !sources.isEmpty else {
 							UIAlertController.showAlertWithOk(
 								title: .localized("Error"),
-								message: .localized("No sources to export")
+								message: .localized("No Sources To Export")
 							)
 							_isExportMode = false
 							return
@@ -238,7 +238,7 @@ struct SourcesAddView: View {
 		}
 		.padding(.horizontal)
 	}
-	
+	// KravaShit lmaoo
 	// MARK: - Featured Sources Section
 	@ViewBuilder
 	private var _featuredSourcesSection: some View {
@@ -264,7 +264,7 @@ struct SourcesAddView: View {
 					VStack(spacing: 12) {
 						ProgressView()
 							.scaleEffect(1.2)
-						Text(.localized("Loading featured sources..."))
+						Text(.localized("Loading Featured Sources..."))
 							.font(.subheadline)
 							.foregroundStyle(.secondary)
 					}
