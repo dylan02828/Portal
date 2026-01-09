@@ -20,23 +20,26 @@ extension Storage {
 			new.uuid = uuid
 			new.source = source
 			new.date = Date()
-			// could possibly be nil, but thats fine.
-			new.identifier = appIdentifier
-			new.name = appName
+			// Provide default values for optional fields
+			new.identifier = appIdentifier ?? ""
+			new.name = appName ?? "Unknown"
 			new.icon = appIcon
-			new.version = appVersion
+			new.version = appVersion ?? ""
 			
 			// Save context synchronously on main queue
 			if self.context.hasChanges {
 				do {
 					try self.context.save()
 					HapticsManager.shared.impact()
+					AppLogManager.shared.success("Successfully added imported app to database: \(appName ?? "Unknown")", category: "Storage")
 					completion(nil)
 				} catch {
+					AppLogManager.shared.error("Failed to save imported app to database: \(error.localizedDescription)", category: "Storage")
 					completion(error)
 				}
 			} else {
 				HapticsManager.shared.impact()
+				AppLogManager.shared.success("Added imported app to database (no changes): \(appName ?? "Unknown")", category: "Storage")
 				completion(nil)
 			}
 		}

@@ -153,10 +153,20 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 		let app = try await _directory()
 		
 		guard let appUrl = _fileManager.getPath(in: app, for: "app") else {
+			Logger.misc.error("[\(self._uuid)] Failed to find .app directory in Payload")
+			AppLogManager.shared.error("Failed to find .app directory in Payload", category: "Import")
 			return
 		}
 		
 		let bundle = Bundle(url: appUrl)
+		
+		// Log bundle information for debugging
+		Logger.misc.info("[\(self._uuid)] Bundle info - name: \(bundle?.name ?? "nil"), identifier: \(bundle?.bundleIdentifier ?? "nil"), version: \(bundle?.version ?? "nil")")
+		
+		if bundle?.name == nil {
+			Logger.misc.warning("[\(self._uuid)] Could not extract app name from bundle")
+			AppLogManager.shared.warning("Could not extract app name from bundle, using default", category: "Import")
+		}
 		
 		Storage.shared.addImported(
 			uuid: _uuid,
@@ -164,8 +174,13 @@ final class AppFileHandler: NSObject, @unchecked Sendable {
 			appIdentifier: bundle?.bundleIdentifier,
 			appVersion: bundle?.version,
 			appIcon: bundle?.iconFileName
-		) { _ in
-			Logger.misc.info("[\(self._uuid)] Added to database")
+		) { error in
+			if let error = error {
+				Logger.misc.error("[\(self._uuid)] Failed to add to database: \(error.localizedDescription)")
+				AppLogManager.shared.error("Failed to add app to database: \(error.localizedDescription)", category: "Import")
+			} else {
+				Logger.misc.info("[\(self._uuid)] Successfully added to database")
+			}
 		}
 	}
 	

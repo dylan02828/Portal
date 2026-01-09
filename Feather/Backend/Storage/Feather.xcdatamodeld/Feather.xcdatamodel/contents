@@ -22,20 +22,20 @@
     <entity name="Imported" representedClassName="Imported" syncable="YES" codeGenerationType="class">
         <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="icon" optional="YES" attributeType="String"/>
-        <attribute name="identifier" attributeType="String"/>
-        <attribute name="name" attributeType="String"/>
+        <attribute name="identifier" optional="YES" attributeType="String" defaultValueString=""/>
+        <attribute name="name" optional="YES" attributeType="String" defaultValueString="Unknown"/>
         <attribute name="source" optional="YES" attributeType="URI"/>
         <attribute name="uuid" attributeType="String"/>
-        <attribute name="version" attributeType="String"/>
+        <attribute name="version" optional="YES" attributeType="String" defaultValueString=""/>
     </entity>
     <entity name="Signed" representedClassName="Signed" syncable="YES" codeGenerationType="class">
         <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="icon" optional="YES" attributeType="String"/>
-        <attribute name="identifier" attributeType="String"/>
-        <attribute name="name" attributeType="String"/>
+        <attribute name="identifier" optional="YES" attributeType="String" defaultValueString=""/>
+        <attribute name="name" optional="YES" attributeType="String" defaultValueString="Unknown"/>
         <attribute name="source" optional="YES" attributeType="URI"/>
         <attribute name="uuid" attributeType="String"/>
-        <attribute name="version" attributeType="String"/>
+        <attribute name="version" optional="YES" attributeType="String" defaultValueString=""/>
         <relationship name="certificate" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CertificatePair" inverseName="signedApps" inverseEntity="CertificatePair"/>
     </entity>
 </model>
