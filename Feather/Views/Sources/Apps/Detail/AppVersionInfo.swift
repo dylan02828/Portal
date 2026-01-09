@@ -1,5 +1,3 @@
-//  Created by Nagata Asami on 27/7/25.
-//
 
 import SwiftUI
 

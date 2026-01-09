@@ -5,12 +5,12 @@ import NimbleViews
 // MARK: - Did You Know Facts
 struct DidYouKnowFacts {
 	static let facts = [
-		"Portal is fully open-source and community-driven!",
+		"Portal is fully open source and made by the Feather team and tweaked by the WSF Team!",
 		"You can sign apps with your own Apple Developer certificate.",
 		"Portal supports multiple app sources for easy discovery.",
 		"Apps signed with Portal can be installed directly on your device.",
 		"You can import apps from URLs or local files.",
-		"Portal respects your privacy - all signing happens on your device.",
+		"Portal respects your privacy, all signing happens on your device.",
 		"Regular certificate rotation helps avoid revocations.",
 		"You can manage multiple certificates in Portal.",
 		"Source repositories can be added from any compatible URL.",
@@ -24,7 +24,7 @@ struct DidYouKnowFacts {
 		"Portal supports both IPA and TIPA file formats.",
 		"App icons can be customized before installation.",
 		"Bundle IDs should be unique to avoid conflicts.",
-		"Portal can re-sign previously signed apps."
+		"Portal can resign previously signed apps."
 	]
 	
 	static func random() -> String {
@@ -168,7 +168,7 @@ struct AllAppsView: View {
 						.font(.title2)
 						.fontWeight(.bold)
 						.foregroundStyle(.primary)
-					Text("Add sources to discover apps.")
+					Text("Add sources to discover apps")
 						.font(.subheadline)
 						.foregroundStyle(.secondary)
 						.multilineTextAlignment(.center)
@@ -221,7 +221,7 @@ struct AllAppsView: View {
 					.fontWeight(.bold)
 					.foregroundStyle(.primary)
 				
-				Text("\(_loadedSourcesCount)/\(object.count) Sources are being loaded")
+				Text("\(_loadedSourcesCount)/\(object.count) Sources are being loaded...")
 					.font(.subheadline)
 					.foregroundStyle(.secondary)
 					.animation(.easeInOut(duration: 0.3), value: _loadedSourcesCount)
@@ -235,7 +235,7 @@ struct AllAppsView: View {
 					Image(systemName: "lightbulb.fill")
 						.font(.system(size: 18))
 						.foregroundStyle(.yellow)
-					Text("Did you know?")
+					Text("Did You Know?")
 						.font(.headline)
 						.fontWeight(.semibold)
 						.foregroundStyle(.primary)
@@ -548,7 +548,7 @@ struct SearchSheetView: View {
 						.foregroundStyle(.secondary)
 						.font(.system(size: 16))
 					
-					TextField("Search apps", text: $searchText)
+					TextField("Search Apps", text: $searchText)
 						.foregroundStyle(.primary)
 						.autocorrectionDisabled()
 						.textInputAutocapitalization(.never)
@@ -650,7 +650,7 @@ struct AllAppsWrapperView: View {
 		
 		UIAlertController.showAlertWithOk(
 			title: .localized("Loading Issue"),
-			message: .localized("New Apps view couldn't load, using old as fallback")
+			message: .localized("New Apps view couldn't load, using old view as fallback")
 		)
 	}
 }

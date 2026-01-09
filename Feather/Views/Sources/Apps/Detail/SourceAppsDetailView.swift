@@ -1,5 +1,3 @@
-//  Created by samsam on 7/25/25.
-//
 
 import SwiftUI
 import Combine
@@ -112,7 +110,7 @@ struct SourceAppsDetailView: View {
 						}
 						
 						if let size = app.size {
-							_infoRow(title: .localized("Size"), value: size.formattedByteCount, icon: "archivebox")
+							_infoRow(title: .localized("App Size"), value: size.formattedByteCount, icon: "archivebox")
 						}
 						
 						if let category = app.category {
@@ -128,7 +126,7 @@ struct SourceAppsDetailView: View {
 						}
 						
 						if let bundleId = app.id {
-							_infoRow(title: .localized("Identifier"), value: bundleId, icon: "barcode")
+							_infoRow(title: .localized("Bundle ID"), value: bundleId, icon: "barcode")
 						}
 					}
 					.padding()
@@ -154,7 +152,7 @@ struct SourceAppsDetailView: View {
 						NavigationLink(destination: PermissionsView(appPermissions: appPermissions, dominantColor: dominantColor)) {
 							NBTitleWithSubtitleView(
 								title: .localized("Permissions"),
-								subtitle: .localized("See which permissions this app requires.")
+								subtitle: .localized("See which permissions this app requires")
 							)
 						}
 						.padding()

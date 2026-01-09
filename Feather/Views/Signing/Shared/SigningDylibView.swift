@@ -75,7 +75,7 @@ struct SigningDylibView: View {
 							)
 					}
 					
-					Text(verbatim: .localized("%lld required system dylibs not shown.", arguments: _hiddenDylibCount))
+					Text(verbatim: .localized("%lld required system dylibs not shown to user.", arguments: _hiddenDylibCount))
 						.font(.footnote)
 						.foregroundStyle(
 							LinearGradient(

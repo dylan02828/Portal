@@ -208,7 +208,7 @@ extension SigningTweaksView {
 						// Show info alert if all frameworks were already added
 						UIAlertController.showAlertWithOk(
 							title: .localized("Info"),
-							message: .localized("All default frameworks are already added to this app")
+							message: .localized("All default frameworks are already added to this app, you may now sign the app.")
 						)
 					}
 				}

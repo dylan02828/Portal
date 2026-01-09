@@ -100,7 +100,7 @@ struct PermissionsView: View {
                                 .font(.system(size: 40))
                                 .foregroundStyle(.secondary.opacity(0.5))
                             
-                            Text(.localized("No Entitlements listed."))
+                            Text(.localized("No Entitlements Listed"))
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                         }
@@ -211,7 +211,7 @@ struct PermissionsView: View {
                                 .font(.system(size: 40))
                                 .foregroundStyle(.secondary.opacity(0.5))
                             
-                            Text(.localized("No Privacy Permissions listed."))
+                            Text(.localized("No Privacy Permissions Listed"))
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                         }

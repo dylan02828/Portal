@@ -469,7 +469,7 @@ struct SourcesView: View {
 		guard _shouldStar == 6 else { return }
 		
 		let github = UIAlertAction(title: "GitHub", style: .default) { _ in
-			UIApplication.open("https://github.com/aoyn1xw/Feather")
+			UIApplication.open("https://github.com/aoyn1xw/Portal")
 		}
 		
 		let cancel = UIAlertAction(title: .localized("Dismiss"), style: .cancel)
@@ -589,7 +589,7 @@ private struct AllAppsCardView: View {
 			Text(.localized("All Apps"))
 				.font(.system(size: 16, weight: .bold))
 				.foregroundStyle(.primary)
-			Text(.localized("Browse your complete app collection"))
+			Text(.localized("See all yor apps in one page"))
 				.font(.caption)
 				.foregroundStyle(.secondary)
 				.lineLimit(1)

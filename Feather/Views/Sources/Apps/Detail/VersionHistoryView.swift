@@ -1,5 +1,3 @@
-//  Created by Nagata Asami on 27/7/25.
-//
 
 import SwiftUI
 import AltSourceKit
@@ -104,7 +102,7 @@ struct VersionHistoryView: View {
                             }
                             .padding(.top, 4)
                         } else {
-                            Text(.localized("No release notes available"))
+                            Text(.localized("No Release Notes Available"))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .italic()

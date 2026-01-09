@@ -71,7 +71,7 @@ struct SigningOptionsView: View {
 				if hasCertificateWithPPQCheck {
 					Text(.localized("PPQ Protection is automatically enabled and required because one or more of your certificates has PPQCheck. This helps protect your Apple ID from being flagged."))
 				} else {
-					Text(.localized("Enabling any protection will append a random string to the bundleidentifiers of the apps you sign, this is to ensure your Apple ID does not get flagged by Apple. However, when using a signing service you can ignore this."))
+					Text(.localized("Enabling any protection will append a random string to the Bundle Identifiers of the apps you sign, this is to ensure yours certificte does not get flagged or revoked by Apple."))
 				}
 			}
 		}
@@ -213,7 +213,7 @@ struct SigningOptionsView: View {
 			}
 			.textCase(.none)
 		} footer: {
-			Text(.localized("Removing the provisioning file will exclude the mobileprovision file from being embedded inside of the application when signing, to help prevent any detection."))
+			Text(.localized("Removing the provisioning file will exclude the .mobileprovision file from being embedded inside of the application when signing, to help prevent any detection."))
 		}
 		
 		Section {
@@ -304,12 +304,12 @@ struct SigningOptionsView: View {
 			}
 			.textCase(.none)
 		} footer: {
-			Text(.localized("This option force converts apps to try to use the new liquid glass redesign iOS 26 introduced, this may not work for all applications due to differing frameworks."))
+			Text(.localized("This option force converts apps to try to use the new Liquid Glass redesign iOS 26 introduced by changing the SDK build, this may not work for all applications due to differing frameworks."))
 		}
 		.alert(.localized("What is PPQ?"), isPresented: $showPPQInfo) {
 			Button(.localized("OK"), role: .cancel) {}
 		} message: {
-			Text(.localized("PPQ is a check Apple has added to certificates. If you have this check, change your Bundle IDs when signing apps to avoid Apple revoking your certificates."))
+			Text(.localized("PPQ is a check Apple has added to certificates. If you have this check on the certificate, change your Bundle IDs when signing apps to avoid Apple revoking your certificates."))
 		}
 	}
 	

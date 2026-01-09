@@ -20,7 +20,7 @@ struct SigningEntitlementsView: View {
 						}
 					}
 			} else {
-				Button(.localized("Select entitlements file")) {
+				Button(.localized("Select Entitlements File")) {
 					_isAddingPresenting = true
 				}
 			}

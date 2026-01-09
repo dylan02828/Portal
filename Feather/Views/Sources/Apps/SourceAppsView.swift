@@ -148,7 +148,7 @@ struct SourceAppsView: View {
 				guard !object.isEmpty else {
 					UIAlertController.showAlertWithOk(
 						title: .localized("Error"),
-						message: .localized("No sources to copy")
+						message: .localized("No Sources To Copy")
 					)
 					return
 				}
@@ -157,7 +157,7 @@ struct SourceAppsView: View {
 				}.joined(separator: "\n")
 				UIAlertController.showAlertWithOk(
 					title: .localized("Success"),
-					message: .localized("Sources copied to clipboard")
+					message: .localized("Sources Copied To Clipboard")
 				)
 			}
 		}

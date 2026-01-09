@@ -67,7 +67,7 @@ struct SourceDetailsView: View {
 					_searchBar()
 						.padding(.horizontal)
 					
-					// News Section - Only show if enabled in settings
+					// News Section, shows if Show News toggle is on tho
 					if _showNews, let news = repository?.news, !news.isEmpty {
 						_newsSection(news: filteredNews.isEmpty && !_searchText.isEmpty ? [] : (filteredNews.isEmpty ? news : filteredNews))
 					}
@@ -248,7 +248,7 @@ struct SourceDetailsView: View {
 			.padding(.horizontal)
 			
 			if news.isEmpty {
-				Text("No news found")
+				Text("No News Found")
 					.font(.subheadline)
 					.foregroundStyle(.secondary)
 					.frame(maxWidth: .infinity)
@@ -397,7 +397,7 @@ struct SourceDetailsView: View {
 							.fontWeight(.bold)
 							.foregroundStyle(.primary)
 						
-						Text(_searchText.isEmpty ? "This source doesn't have any apps yet" : "Try adjusting your search terms")
+						Text(_searchText.isEmpty ? "This source doesn't have any apps yet lmao, weird" : "Try adjusting your search terms")
 							.font(.subheadline)
 							.foregroundStyle(.secondary)
 							.multilineTextAlignment(.center)

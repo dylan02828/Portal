@@ -119,7 +119,7 @@ struct SourcesAddView: View {
 					UIPasteboard.general.string = selectedUrls
 					UIAlertController.showAlertWithOk(
 						title: .localized("Success"),
-						message: .localized("Sources copied to clipboard")
+						message: .localized("Sources Copied To Clipboard")
 					) {
 						_isExportMode = false
 						_selectedSourcesForExport.removeAll()
@@ -302,7 +302,7 @@ struct SourcesAddView: View {
 			.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 			
 			VStack(alignment: .leading, spacing: 8) {
-				Text(.localized("Open an [issue](https://github.com/khcrysalis/Feather/issues) on GitHub if you want your source to be featured."))
+				Text(.localized("More will get added soon!"))
 					.font(.caption)
 					.foregroundStyle(.secondary)
 			}

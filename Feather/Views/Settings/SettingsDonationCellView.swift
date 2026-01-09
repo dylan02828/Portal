@@ -2,6 +2,9 @@
 import SwiftUI
 import NimbleViews
 
+
+// no longer need view
+
 struct SettingsDonationCellView: View {
 	var site: String
 	

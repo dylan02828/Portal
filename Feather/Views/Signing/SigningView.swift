@@ -268,8 +268,8 @@ extension SigningView {
 				HStack(spacing: 16) {
 					Menu {
 						Button(.localized("Select Alternative Icon"), systemImage: "app.dashed") { _isAltPickerPresenting = true }
-						Button(.localized("Choose from Files"), systemImage: "folder") { _isFilePickerPresenting = true }
-						Button(.localized("Choose from Photos"), systemImage: "photo") { _isImagePickerPresenting = true }
+						Button(.localized("Choose From Files"), systemImage: "folder") { _isFilePickerPresenting = true }
+						Button(.localized("Choose From Photos"), systemImage: "photo") { _isImagePickerPresenting = true }
 					} label: {
 						ZStack {
 							if let icon = appIcon {
@@ -639,7 +639,7 @@ extension SigningView {
 		if DylibDetector.shared.hasDylibs() {
 			UIAlertController.showAlertWithOk(
 				title: .localized("Dynamic Libraries Detected"),
-				message: .localized("Sorry but you may not add any .dylib files to this app. Please resign the app without any additional frameworks to proceed.")
+				message: .localized("Sorry but you may not add any .dylib or .deb files to this app. Please resign the app without any additional frameworks to proceed.")
 			)
 			return
 		}
@@ -649,7 +649,7 @@ extension SigningView {
 		else {
 			UIAlertController.showAlertWithOk(
 				title: .localized("No Certificate"),
-				message: .localized("Please go to settings and import a valid certificate"),
+				message: .localized("Please go to Settings and import a certificate"),
 				isCancel: true
 			)
 			return

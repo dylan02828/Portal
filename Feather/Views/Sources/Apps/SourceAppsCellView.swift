@@ -4,7 +4,7 @@ import NimbleViews
 import Combine
 import NukeUI
 
-// thats a whole pharaghraph of codes
+// another sources view ffs
 struct SourceAppsCellView: View {
 	@AppStorage("Feather.storeCellAppearance") private var _storeCellAppearance: Int = 0
 	
@@ -49,7 +49,7 @@ struct SourceAppsCellView: View {
 	static func appDescription(app: ASRepository.App) -> String {
 		let optionalComponents: [String?] = [
 			app.currentVersion,
-			app.currentDescription ?? .localized("An awesome application")
+			app.currentDescription ?? .localized("An Awesome Application")
 		]
 		
 		let components: [String] = optionalComponents.compactMap { value in

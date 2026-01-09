@@ -14,7 +14,7 @@ struct SigningFrameworksView: View {
 	
 	// MARK: Body
 	var body: some View {
-		NBList(.localized("Frameworks & PlugIns")) {
+		NBList(.localized("Frameworks & Plugins")) {
 			Group {
 				if !_frameworks.isEmpty {
 					Section {
@@ -120,7 +120,7 @@ struct SigningFrameworksView: View {
 									)
 							}
 							
-							Text(.localized("No Frameworks or PlugIns Found."))
+							Text(.localized("No Frameworks or Plugins Found"))
 								.font(.subheadline)
 								.foregroundStyle(
 									LinearGradient(

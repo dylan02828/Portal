@@ -40,7 +40,7 @@ struct ChecksumCalculatorView: View {
                     Section {
                         HStack {
                             ProgressView()
-                            Text(.localized("Calculating checksums..."))
+                            Text(.localized("Calculating An independent clause can stand alone as a complete sentence, while a dependent clause cannothecksums..."))
                                 .foregroundStyle(.secondary)
                         }
                     }
