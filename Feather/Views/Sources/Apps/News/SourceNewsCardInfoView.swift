@@ -64,6 +64,8 @@ struct SourceNewsCardInfoView: View {
 							)
 					)
 					.shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
+					
+					// Content section
 					VStack(alignment: .leading, spacing: 16) {
 						// Title
 						Text(new.title)
@@ -108,24 +110,24 @@ struct SourceNewsCardInfoView: View {
 							Button {
 								UIApplication.shared.open(url)
 							} label: {
-									HStack(spacing: 10) {
-										Text(.localized("Read More"))
-											.font(.system(size: 17, weight: .bold))
-										Image(systemName: "arrow.up.right")
-											.font(.system(size: 15, weight: .bold))
-									}
-									.foregroundStyle(.white)
-									.frame(maxWidth: .infinity)
-									.padding(.vertical, 16)
-									.background(
-										LinearGradient(
-											colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
-											startPoint: .leading,
-											endPoint: .trailing
-										)
+								HStack(spacing: 10) {
+									Text(.localized("Read More"))
+										.font(.system(size: 17, weight: .bold))
+									Image(systemName: "arrow.up.right")
+										.font(.system(size: 15, weight: .bold))
+								}
+								.foregroundStyle(.white)
+								.frame(maxWidth: .infinity)
+								.padding(.vertical, 16)
+								.background(
+									LinearGradient(
+										colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
+										startPoint: .leading,
+										endPoint: .trailing
 									)
-									.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-									.shadow(color: Color.accentColor.opacity(0.4), radius: 12, x: 0, y: 6)
+								)
+								.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+								.shadow(color: Color.accentColor.opacity(0.4), radius: 12, x: 0, y: 6)
 							}
 							.buttonStyle(.plain)
 							.padding(.top, 8)

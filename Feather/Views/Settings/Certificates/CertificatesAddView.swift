@@ -116,7 +116,7 @@ struct CertificatesAddView: View {
     // MARK: - Divider Section
     private var dividerSection: some View {
         Rectangle()
-            .fill(Color(UIColor.separator))
+            .fill(Color(UIColor.separator).opacity(0.3))
             .frame(height: 1)
             .padding(.vertical, 4)
     }
