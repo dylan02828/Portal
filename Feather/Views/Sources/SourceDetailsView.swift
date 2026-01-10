@@ -3,612 +3,608 @@ import AltSourceKit
 import NimbleViews
 import NukeUI
 
-// MARK: - View
+// MARK: - Modern Source Details View with Blue Gradient Background
 struct SourceDetailsView: View {
-	@Environment(\.dismiss) var dismiss
-	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
-	@AppStorage("Feather.showNews") private var _showNews: Bool = true
-	@State private var dominantColor: Color = .accentColor
-	@State private var _searchText = ""
-	@State private var _selectedNewsPresenting: ASRepository.News?
-	@State private var _selectedRoute: SourceAppRoute?
-	
-	var source: AltSource
-	@ObservedObject var viewModel: SourcesViewModel
-	@State private var repository: ASRepository?
-	
-	private var filteredApps: [ASRepository.App] {
-		guard let repo = repository else { return [] }
-		let apps = repo.apps
-		if _searchText.isEmpty {
-			return apps
-		}
-		return apps.filter { app in
-			(app.name?.localizedCaseInsensitiveContains(_searchText) ?? false) ||
-			(app.localizedDescription?.localizedCaseInsensitiveContains(_searchText) ?? false)
-		}
-	}
-	
-	private var filteredNews: [ASRepository.News] {
-		guard let repo = repository, let news = repo.news else { return [] }
-		if _searchText.isEmpty {
-			return news
-		}
-		return news.filter { newsItem in
-			newsItem.title.localizedCaseInsensitiveContains(_searchText) ||
-			newsItem.caption.localizedCaseInsensitiveContains(_searchText)
-		}
-	}
-	
-	// MARK: Body
-	var body: some View {
-		ZStack {
-			// Full gradient background
-			LinearGradient(
-				colors: [
-					dominantColor.opacity(0.15),
-					dominantColor.opacity(0.08),
-					Color(UIColor.systemGroupedBackground),
-					dominantColor.opacity(0.05)
-				],
-				startPoint: .topLeading,
-				endPoint: .bottomTrailing
-			)
-			.ignoresSafeArea()
-			
-			ScrollView {
-				VStack(spacing: 20) {
-					// Source Header Card
-					_sourceHeader()
-						.padding(.horizontal)
-						.padding(.top, 8)
-					
-					// Search Bar
-					_searchBar()
-						.padding(.horizontal)
-					
-					// News Section, shows if Show News toggle is on tho
-					if _showNews, let news = repository?.news, !news.isEmpty {
-						_newsSection(news: filteredNews.isEmpty && !_searchText.isEmpty ? [] : (filteredNews.isEmpty ? news : filteredNews))
-					}
-					
-					// Apps Section
-					if let apps = repository?.apps, !apps.isEmpty {
-						_appsSection(apps: filteredApps.isEmpty && !_searchText.isEmpty ? [] : filteredApps)
-					}
-				}
-				.padding(.bottom, 20)
-			}
-		}
-		.navigationTitle("Source Details")
-		.navigationBarTitleDisplayMode(.inline)
-		.onAppear {
-			if let repo = viewModel.sources[source] {
-				repository = repo
-			}
-		}
-		.fullScreenCover(item: $_selectedNewsPresenting) { news in
-			SourceNewsCardInfoView(new: news)
-		}
-		.navigationDestinationIfAvailable(item: $_selectedRoute) { route in
-			SourceAppsDetailView(source: route.source, app: route.app)
-		}
-	}
-	
-	// MARK: - Source Header
-	@ViewBuilder
-	private func _sourceHeader() -> some View {
-		VStack(spacing: 16) {
-			HStack(spacing: 16) {
-				// Repository Icon
-				if let iconURL = source.iconURL {
-					LazyImage(url: iconURL) { state in
-						if let image = state.image {
-							image
-								.resizable()
-								.aspectRatio(contentMode: .fill)
-						} else {
-							RoundedRectangle(cornerRadius: 20, style: .continuous)
-								.fill(Color.gray.opacity(0.2))
-						}
-					}
-					.frame(width: 90, height: 90)
-					.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-					.shadow(color: dominantColor.opacity(0.3), radius: 10, x: 0, y: 5)
-					.onAppear {
-						extractDominantColor(from: iconURL)
-					}
-				} else {
-					RoundedRectangle(cornerRadius: 20, style: .continuous)
-						.fill(Color.gray.opacity(0.2))
-						.frame(width: 90, height: 90)
-				}
-				
-				VStack(alignment: .leading, spacing: 8) {
-					Text(source.name ?? .localized("Unknown"))
-						.font(.title2)
-						.fontWeight(.bold)
-						.foregroundStyle(.primary)
-					
-					if let url = source.sourceURL?.absoluteString {
-						Text(url)
-							.font(.caption)
-							.foregroundStyle(.secondary)
-							.lineLimit(2)
-					}
-					
-					if let repo = repository {
-						HStack(spacing: 12) {
-							Label("\(repo.apps.count)", systemImage: "app.badge")
-								.font(.caption)
-								.foregroundStyle(dominantColor)
-							
-							if let news = repo.news, !news.isEmpty {
-								Label("\(news.count)", systemImage: "newspaper")
-									.font(.caption)
-									.foregroundStyle(dominantColor)
-							}
-						}
-						.padding(.top, 4)
-					}
-				}
-				
-				Spacer()
-			}
-			
-			// Additional repo metadata if available
-			if let repo = repository {
-				VStack(spacing: 8) {
-					Divider()
-						.background(dominantColor.opacity(0.3))
-					
-					HStack {
-						if let identifier = repo.id {
-							VStack(alignment: .leading, spacing: 4) {
-								Text("Identifier")
-									.font(.caption2)
-									.foregroundStyle(.secondary)
-								Text(identifier)
-									.font(.caption)
-									.foregroundStyle(.primary)
-									.lineLimit(1)
-							}
-						}
-						
-						Spacer()
-						
-						if let subtitle = repo.subtitle {
-							VStack(alignment: .trailing, spacing: 4) {
-								Text("Description")
-									.font(.caption2)
-									.foregroundStyle(.secondary)
-								Text(subtitle)
-									.font(.caption)
-									.foregroundStyle(.primary)
-									.lineLimit(2)
-									.multilineTextAlignment(.trailing)
-							}
-						}
-					}
-				}
-			}
-		}
-		.padding(20)
-		.background(
-			RoundedRectangle(cornerRadius: 20, style: .continuous)
-				.fill(
-					LinearGradient(
-						colors: [
-							dominantColor.opacity(0.25),
-							dominantColor.opacity(0.15),
-							Color(UIColor.secondarySystemGroupedBackground).opacity(0.95),
-							dominantColor.opacity(0.1)
-						],
-						startPoint: .topLeading,
-						endPoint: .bottomTrailing
-					)
-				)
-		)
-		.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-		.overlay(
-			RoundedRectangle(cornerRadius: 20, style: .continuous)
-				.stroke(
-					LinearGradient(
-						colors: [dominantColor.opacity(0.5), dominantColor.opacity(0.25)],
-						startPoint: .topLeading,
-						endPoint: .bottomTrailing
-					),
-					lineWidth: 2
-				)
-		)
-		.shadow(color: dominantColor.opacity(0.35), radius: 15, x: 0, y: 6)
-	}
-	
-	// MARK: - Search Bar
-	@ViewBuilder
-	private func _searchBar() -> some View {
-		HStack(spacing: 12) {
-			Image(systemName: "magnifyingglass")
-				.foregroundStyle(dominantColor)
-				.font(.body)
-			
-			TextField("Search \((repository?.apps ?? []).count) Apps", text: $_searchText)
-				.textFieldStyle(.plain)
-			
-			if !_searchText.isEmpty {
-				Button {
-					_searchText = ""
-				} label: {
-					Image(systemName: "xmark.circle.fill")
-						.foregroundStyle(.secondary)
-				}
-			}
-		}
-		.padding(12)
-		.background(subtleGradient(cornerRadius: 12))
-	}
-	
-	// MARK: - News Section
-	@ViewBuilder
-	private func _newsSection(news: [ASRepository.News]) -> some View {
-		VStack(alignment: .leading, spacing: 12) {
-			HStack {
-				Text("News")
-					.font(.title3)
-					.fontWeight(.bold)
-				
-				Spacer()
-				
-				if let fullNews = repository?.news, fullNews.count > 3 {
-					NavigationLink {
-						SourceNewsListView(news: fullNews, dominantColor: dominantColor)
-					} label: {
-						HStack(spacing: 4) {
-							Text("See All")
-								.font(.subheadline)
-							Image(systemName: "chevron.right")
-								.font(.caption)
-						}
-						.foregroundStyle(dominantColor)
-					}
-				}
-			}
-			.padding(.horizontal)
-			
-			if news.isEmpty {
-				Text("No News Found")
-					.font(.subheadline)
-					.foregroundStyle(.secondary)
-					.frame(maxWidth: .infinity)
-					.padding(.vertical, 20)
-			} else {
-				ScrollView(.horizontal, showsIndicators: false) {
-					LazyHStack(spacing: 12) {
-						ForEach(Array(news.prefix(5)), id: \.id) { newsItem in
-							Button {
-								_selectedNewsPresenting = newsItem
-							} label: {
-								_newsCard(newsItem)
-							}
-						}
-					}
-					.padding(.horizontal)
-				}
-			}
-		}
-	}
-	
-	@ViewBuilder
-	private func _newsCard(_ newsItem: ASRepository.News) -> some View {
-		VStack(alignment: .leading, spacing: 0) {
-			// Thumbnail
-			if let imageURL = newsItem.imageURL {
-				LazyImage(url: imageURL) { state in
-					if let image = state.image {
-						image
-							.resizable()
-							.aspectRatio(contentMode: .fill)
-					} else {
-						Rectangle()
-							.fill(Color.gray.opacity(0.2))
-					}
-				}
-				.frame(width: 300, height: 170)
-				.clipped()
-			} else {
-				Rectangle()
-					.fill(dominantColor.opacity(0.15))
-					.frame(width: 300, height: 170)
-					.overlay(
-						Image(systemName: "newspaper.fill")
-							.font(.system(size: 40))
-							.foregroundStyle(dominantColor.opacity(0.5))
-					)
-			}
-			
-			// Content
-			VStack(alignment: .leading, spacing: 8) {
-				Text(newsItem.title)
-					.font(.headline)
-					.foregroundStyle(.primary)
-					.lineLimit(2)
-				
-				Text(newsItem.caption)
-					.font(.caption)
-					.foregroundStyle(.secondary)
-					.lineLimit(2)
-				
-				// Date badge if available
-				if let date = newsItem.date {
-					HStack(spacing: 4) {
-						Image(systemName: "calendar")
-							.font(.caption2)
-						Text(formatNewsDate(date.date))
-							.font(.caption2)
-					}
-					.foregroundStyle(.secondary)
-					.padding(.top, 4)
-				}
-			}
-			.padding(14)
-			.frame(width: 300, alignment: .leading)
-		}
-		.background(verticalGradient())
-		.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-		.shadow(color: dominantColor.opacity(0.15), radius: 10, x: 0, y: 4)
-	}
-	
-	private func formatNewsDate(_ date: Date) -> String {
-		let formatter = RelativeDateTimeFormatter()
-		formatter.unitsStyle = .abbreviated
-		return formatter.localizedString(for: date, relativeTo: Date())
-	}
-	
-	// MARK: - Apps Section
-	@ViewBuilder
-	private func _appsSection(apps: [ASRepository.App]) -> some View {
-		VStack(alignment: .leading, spacing: 12) {
-			HStack {
-				Text("Recently Updated")
-					.font(.title3)
-					.fontWeight(.bold)
-				
-				Spacer()
-				
-				if let fullApps = repository?.apps, fullApps.count > 10 {
-					NavigationLink {
-						if let repo = repository {
-							SourceAppsListView(repository: repo, dominantColor: dominantColor)
-						}
-					} label: {
-						HStack(spacing: 4) {
-							Text("See All")
-								.font(.subheadline)
-							Image(systemName: "chevron.right")
-								.font(.caption)
-						}
-						.foregroundStyle(dominantColor)
-					}
-				}
-			}
-			.padding(.horizontal)
-			
-			if apps.isEmpty {
-				// Modern empty state
-				VStack(spacing: 16) {
-					ZStack {
-						Circle()
-							.fill(
-								LinearGradient(
-									colors: [dominantColor.opacity(0.2), dominantColor.opacity(0.1)],
-									startPoint: .topLeading,
-									endPoint: .bottomTrailing
-								)
-							)
-							.frame(width: 80, height: 80)
-						
-						Image(systemName: "app.badge.questionmark")
-							.font(.system(size: 36, weight: .medium))
-							.foregroundStyle(
-								LinearGradient(
-									colors: [dominantColor, dominantColor.opacity(0.7)],
-									startPoint: .topLeading,
-									endPoint: .bottomTrailing
-								)
-							)
-					}
-					.shadow(color: dominantColor.opacity(0.3), radius: 10, x: 0, y: 5)
-					
-					VStack(spacing: 8) {
-						Text("No Apps Found")
-							.font(.title3)
-							.fontWeight(.bold)
-							.foregroundStyle(.primary)
-						
-						Text(_searchText.isEmpty ? "This source doesn't have any apps yet lmao, weird" : "Try adjusting your search terms")
-							.font(.subheadline)
-							.foregroundStyle(.secondary)
-							.multilineTextAlignment(.center)
-					}
-				}
-				.frame(maxWidth: .infinity)
-				.padding(.vertical, 40)
-				.padding(.horizontal, 20)
-			} else {
-				// Get the 10 most recently updated apps
-				let recentApps = apps.sorted { app1, app2 in
-					let date1 = app1.currentDate?.date ?? .distantPast
-					let date2 = app2.currentDate?.date ?? .distantPast
-					return date1 > date2
-				}.prefix(10)
-				
-				VStack(spacing: 0) {
-					ForEach(Array(recentApps.enumerated()), id: \.element.id) { index, app in
-						Button {
-							if let repo = repository {
-								_selectedRoute = SourceAppRoute(source: repo, app: app)
-							}
-						} label: {
-							_appRow(app)
-						}
-						.buttonStyle(.plain)
-						
-						if index < recentApps.count - 1 {
-							Divider()
-								.padding(.leading, 76)
-						}
-					}
-				}
-				.padding(.horizontal)
-			}
-		}
-	}
-	
-	@ViewBuilder
-	private func _appRow(_ app: ASRepository.App) -> some View {
-		HStack(spacing: 12) {
-			// App Icon
-			if let iconURL = app.iconURL {
-				LazyImage(url: iconURL) { state in
-					if let image = state.image {
-						image
-							.resizable()
-							.aspectRatio(contentMode: .fill)
-					} else {
-						RoundedRectangle(cornerRadius: 12, style: .continuous)
-							.fill(Color.gray.opacity(0.2))
-					}
-				}
-				.frame(width: 52, height: 52)
-				.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-			} else {
-				RoundedRectangle(cornerRadius: 12, style: .continuous)
-					.fill(Color.gray.opacity(0.2))
-					.frame(width: 52, height: 52)
-			}
-			
-			VStack(alignment: .leading, spacing: 4) {
-				Text(app.name ?? "Unknown")
-					.font(.body)
-					.fontWeight(.medium)
-					.foregroundStyle(.primary)
-				
-				if let subtitle = app.subtitle {
-					Text(subtitle)
-						.font(.caption)
-						.foregroundStyle(.secondary)
-						.lineLimit(1)
-				}
-			}
-			
-			Spacer()
-			
-			Image(systemName: "chevron.right")
-				.font(.caption)
-				.foregroundStyle(.tertiary)
-		}
-		.padding(.vertical, 8)
-	}
-	
-	// MARK: - Color Extraction
-	private func extractDominantColor(from url: URL) {
-		Task {
-			guard let data = try? Data(contentsOf: url),
-				  let uiImage = UIImage(data: data),
-				  let cgImage = uiImage.cgImage else { return }
-			
-			let ciImage = CIImage(cgImage: cgImage)
-			let filter = CIFilter(name: "CIAreaAverage")
-			filter?.setValue(ciImage, forKey: kCIInputImageKey)
-			filter?.setValue(CIVector(cgRect: ciImage.extent), forKey: kCIInputExtentKey)
-			
-			guard let outputImage = filter?.outputImage else { return }
-			
-			var pixel = [UInt8](repeating: 0, count: 4)
-			CIContext().render(
-				outputImage,
-				toBitmap: &pixel,
-				rowBytes: 4,
-				bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-				format: .RGBA8,
-				colorSpace: nil
-			)
-			
-			let r = Double(pixel[0]) / 255.0
-			let g = Double(pixel[1]) / 255.0
-			let b = Double(pixel[2]) / 255.0
-			
-			await MainActor.run {
-				dominantColor = Color(red: r, green: g, blue: b)
-			}
-		}
-	}
-	
-	// MARK: - Gradient Helpers
-	private func accentedGradient(cornerRadius: CGFloat, shadowRadius: CGFloat = 12) -> some View {
-		RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-			.fill(
-				LinearGradient(
-					colors: [
-						dominantColor.opacity(0.25),
-						dominantColor.opacity(0.15),
-						Color(UIColor.secondarySystemGroupedBackground).opacity(0.8),
-						dominantColor.opacity(0.1)
-					],
-					startPoint: .topLeading,
-					endPoint: .bottomTrailing
-				)
-			)
-			.overlay(
-				RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-					.stroke(
-						LinearGradient(
-							colors: [dominantColor.opacity(0.4), dominantColor.opacity(0.2)],
-							startPoint: .topLeading,
-							endPoint: .bottomTrailing
-						),
-						lineWidth: 1.5
-					)
-			)
-			.shadow(color: dominantColor.opacity(0.3), radius: shadowRadius, x: 0, y: 4)
-	}
-	
-	private func subtleGradient(cornerRadius: CGFloat) -> some View {
-		RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-			.fill(
-				LinearGradient(
-					colors: [
-						dominantColor.opacity(0.15),
-						Color(UIColor.secondarySystemBackground).opacity(0.9),
-						dominantColor.opacity(0.1)
-					],
-					startPoint: .topLeading,
-					endPoint: .bottomTrailing
-				)
-			)
-			.overlay(
-				RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-					.stroke(dominantColor.opacity(0.2), lineWidth: 1)
-			)
-	}
-	
-	private func verticalGradient() -> LinearGradient {
-		LinearGradient(
-			colors: [
-				dominantColor.opacity(0.12),
-				Color(UIColor.secondarySystemGroupedBackground),
-				Color(UIColor.tertiarySystemGroupedBackground).opacity(0.8)
-			],
-			startPoint: .top,
-			endPoint: .bottom
-		)
-	}
-	
-	struct SourceAppRoute: Identifiable, Hashable {
-		let source: ASRepository
-		let app: ASRepository.App
-		let id: String = UUID().uuidString
-	}
+    @Environment(\.dismiss) var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @AppStorage("Feather.showNews") private var _showNews: Bool = true
+    @State private var dominantColor: Color = .cyan
+    @State private var _searchText = ""
+    @State private var _selectedNewsPresenting: ASRepository.News?
+    @State private var _selectedRoute: SourceAppRoute?
+    
+    var source: AltSource
+    @ObservedObject var viewModel: SourcesViewModel
+    @State private var repository: ASRepository?
+    
+    private var filteredApps: [ASRepository.App] {
+        guard let repo = repository else { return [] }
+        let apps = repo.apps
+        if _searchText.isEmpty {
+            return apps
+        }
+        return apps.filter { app in
+            (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false) ||
+            (app.localizedDescription?.localizedCaseInsensitiveContains(_searchText) ?? false)
+        }
+    }
+    
+    private var filteredNews: [ASRepository.News] {
+        guard let repo = repository, let news = repo.news else { return [] }
+        if _searchText.isEmpty {
+            return news
+        }
+        return news.filter { newsItem in
+            newsItem.title.localizedCaseInsensitiveContains(_searchText) ||
+            newsItem.caption.localizedCaseInsensitiveContains(_searchText)
+        }
+    }
+    
+    var body: some View {
+        ZStack {
+            // Full screen vertical blue gradient background
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.10, blue: 0.25),
+                    Color(red: 0.08, green: 0.15, blue: 0.35),
+                    Color(red: 0.10, green: 0.18, blue: 0.40),
+                    Color(red: 0.06, green: 0.12, blue: 0.30)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Custom navigation area
+                    customNavigationBar
+                    
+                    VStack(spacing: 24) {
+                        // Prominent source header card
+                        sourceHeaderCard
+                        
+                        // Featured horizontal card section
+                        if _showNews, let news = repository?.news, !news.isEmpty {
+                            featuredNewsSection(news: filteredNews.isEmpty && !_searchText.isEmpty ? [] : (filteredNews.isEmpty ? news : filteredNews))
+                        }
+                        
+                        // Vertical feed of app cards
+                        if let apps = repository?.apps, !apps.isEmpty {
+                            appsVerticalFeed(apps: filteredApps.isEmpty && !_searchText.isEmpty ? [] : filteredApps)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 100)
+                }
+            }
+        }
+        .navigationBarHidden(true)
+        .onAppear {
+            if let repo = viewModel.sources[source] {
+                repository = repo
+            }
+            if let iconURL = source.iconURL {
+                extractDominantColor(from: iconURL)
+            }
+        }
+        .fullScreenCover(item: $_selectedNewsPresenting) { news in
+            SourceNewsCardInfoView(new: news)
+        }
+        .navigationDestinationIfAvailable(item: $_selectedRoute) { route in
+            SourceAppsDetailView(source: route.source, app: route.app)
+        }
+    }
+    
+    // MARK: - Custom Navigation Bar
+    private var customNavigationBar: some View {
+        HStack(spacing: 16) {
+            // Circular back button
+            Button {
+                dismiss()
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            }
+            
+            Spacer()
+            
+            Text("Source Details")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            
+            Spacer()
+            
+            // Placeholder for symmetry
+            Circle()
+                .fill(Color.clear)
+                .frame(width: 40, height: 40)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 20)
+    }
+    
+    // MARK: - Source Header Card
+    private var sourceHeaderCard: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 16) {
+                // Leading icon container with depth and glow
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    dominantColor.opacity(0.5),
+                                    dominantColor.opacity(0.3)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 80, height: 80)
+                        .shadow(color: dominantColor.opacity(0.6), radius: 12, x: 0, y: 6)
+                    
+                    if let iconURL = source.iconURL {
+                        LazyImage(url: iconURL) { state in
+                            if let image = state.image {
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 64, height: 64)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            } else {
+                                Image(systemName: "globe")
+                                    .font(.system(size: 30, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                    } else {
+                        Image(systemName: "globe")
+                            .font(.system(size: 30, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(source.name ?? String.localized("Unknown"))
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    
+                    if let url = source.sourceURL?.host {
+                        Text(url)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(1)
+                    }
+                    
+                    if let repo = repository {
+                        HStack(spacing: 16) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "app.badge")
+                                    .font(.system(size: 12))
+                                Text("\(repo.apps.count)")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundStyle(dominantColor)
+                            
+                            if let news = repo.news, !news.isEmpty {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "newspaper")
+                                        .font(.system(size: 12))
+                                    Text("\(news.count)")
+                                        .font(.system(size: 14, weight: .semibold))
+                                }
+                                .foregroundStyle(dominantColor)
+                            }
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+        }
+        .padding(24)
+        .background(
+            ZStack {
+                // Darker gradient background
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.10, green: 0.15, blue: 0.30),
+                                Color(red: 0.06, green: 0.10, blue: 0.22)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Inner highlight
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.25),
+                                .white.opacity(0.05),
+                                .clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+                
+                // Accent glow
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(dominantColor.opacity(0.08))
+            }
+        )
+        .shadow(color: Color.black.opacity(0.4), radius: 16, x: 0, y: 10)
+        .shadow(color: dominantColor.opacity(0.2), radius: 24, x: 0, y: 12)
+    }
+    
+    // MARK: - Featured News Section (Horizontal Cards)
+    @ViewBuilder
+    private func featuredNewsSection(news: [ASRepository.News]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Featured")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                
+                Spacer()
+                
+                if let fullNews = repository?.news, fullNews.count > 3 {
+                    NavigationLink {
+                        SourceNewsListView(news: fullNews, dominantColor: dominantColor)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("See All")
+                                .font(.system(size: 14, weight: .semibold))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(dominantColor)
+                    }
+                }
+            }
+            
+            if news.isEmpty {
+                Text("No news found")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(Array(news.prefix(5)), id: \.id) { newsItem in
+                            Button {
+                                _selectedNewsPresenting = newsItem
+                            } label: {
+                                featuredNewsCard(newsItem)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, -20)
+                .padding(.leading, 20)
+            }
+        }
+    }
+    
+    // MARK: - Featured News Card (Compact with depth and glow)
+    private func featuredNewsCard(_ newsItem: ASRepository.News) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Thumbnail
+            ZStack {
+                if let imageURL = newsItem.imageURL {
+                    LazyImage(url: imageURL) { state in
+                        if let image = state.image {
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } else {
+                            Rectangle()
+                                .fill(dominantColor.opacity(0.3))
+                        }
+                    }
+                } else {
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [dominantColor.opacity(0.4), dominantColor.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay(
+                            Image(systemName: "newspaper.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(.white.opacity(0.5))
+                        )
+                }
+            }
+            .frame(width: 220, height: 130)
+            .clipped()
+            
+            // Content
+            VStack(alignment: .leading, spacing: 6) {
+                Text(newsItem.title)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                
+                Text(newsItem.caption)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(2)
+            }
+            .padding(14)
+            .frame(width: 220, alignment: .leading)
+        }
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.12, green: 0.18, blue: 0.35),
+                                Color(red: 0.08, green: 0.12, blue: 0.28)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.white.opacity(0.15), .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 6)
+        .shadow(color: dominantColor.opacity(0.15), radius: 16, x: 0, y: 8)
+    }
+    
+    // MARK: - Apps Vertical Feed
+    @ViewBuilder
+    private func appsVerticalFeed(apps: [ASRepository.App]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Apps")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                
+                Spacer()
+                
+                if let fullApps = repository?.apps, fullApps.count > 10 {
+                    NavigationLink {
+                        if let repo = repository {
+                            SourceAppsListView(repository: repo, dominantColor: dominantColor)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("See All")
+                                .font(.system(size: 14, weight: .semibold))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(dominantColor)
+                    }
+                }
+            }
+            
+            if apps.isEmpty {
+                emptyAppsState
+            } else {
+                // Get the 10 most recently updated apps
+                let recentApps = apps.sorted { app1, app2 in
+                    let date1 = app1.currentDate?.date ?? .distantPast
+                    let date2 = app2.currentDate?.date ?? .distantPast
+                    return date1 > date2
+                }.prefix(10)
+                
+                VStack(spacing: 14) {
+                    ForEach(Array(recentApps), id: \.id) { app in
+                        Button {
+                            if let repo = repository {
+                                _selectedRoute = SourceAppRoute(source: repo, app: app)
+                            }
+                        } label: {
+                            appFeedCard(app)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - App Feed Card (Large rounded, elevated, layered)
+    private func appFeedCard(_ app: ASRepository.App) -> some View {
+        HStack(spacing: 16) {
+            // App icon with thumbnail treatment
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                dominantColor.opacity(0.3),
+                                dominantColor.opacity(0.15)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 60, height: 60)
+                
+                if let iconURL = app.iconURL {
+                    LazyImage(url: iconURL) { state in
+                        if let image = state.image {
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 48, height: 48)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        } else {
+                            Image(systemName: "app.fill")
+                                .font(.system(size: 24))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                    }
+                } else {
+                    Image(systemName: "app.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+            }
+            .shadow(color: dominantColor.opacity(0.3), radius: 6, x: 0, y: 3)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(app.name ?? "Unknown")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                
+                if let subtitle = app.subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .lineLimit(1)
+                }
+                
+                if let version = app.currentVersion {
+                    Text("v\(version)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(dominantColor)
+                }
+            }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.4))
+        }
+        .padding(18)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.12, green: 0.18, blue: 0.35),
+                                Color(red: 0.08, green: 0.12, blue: 0.28)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.white.opacity(0.15), .white.opacity(0.03), .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
+        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+    }
+    
+    // MARK: - Empty Apps State
+    private var emptyAppsState: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [dominantColor.opacity(0.3), dominantColor.opacity(0.15)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 70, height: 70)
+                    .blur(radius: 15)
+                
+                Image(systemName: "app.badge.questionmark")
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundStyle(dominantColor)
+            }
+            
+            VStack(spacing: 8) {
+                Text("No Apps Found")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                
+                Text(_searchText.isEmpty ? "This source doesn't have any apps yet" : "Try adjusting your search terms")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+    
+    // MARK: - Color Extraction
+    private func extractDominantColor(from url: URL) {
+        Task {
+            guard let data = try? Data(contentsOf: url),
+                  let uiImage = UIImage(data: data),
+                  let cgImage = uiImage.cgImage else { return }
+            
+            let ciImage = CIImage(cgImage: cgImage)
+            let filter = CIFilter(name: "CIAreaAverage")
+            filter?.setValue(ciImage, forKey: kCIInputImageKey)
+            filter?.setValue(CIVector(cgRect: ciImage.extent), forKey: kCIInputExtentKey)
+            
+            guard let outputImage = filter?.outputImage else { return }
+            
+            var pixel = [UInt8](repeating: 0, count: 4)
+            CIContext().render(
+                outputImage,
+                toBitmap: &pixel,
+                rowBytes: 4,
+                bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                format: .RGBA8,
+                colorSpace: nil
+            )
+            
+            let r = Double(pixel[0]) / 255.0
+            let g = Double(pixel[1]) / 255.0
+            let b = Double(pixel[2]) / 255.0
+            
+            await MainActor.run {
+                dominantColor = Color(red: r, green: g, blue: b)
+            }
+        }
+    }
+    
+    struct SourceAppRoute: Identifiable, Hashable {
+        let source: ASRepository
+        let app: ASRepository.App
+        let id: String = UUID().uuidString
+    }
 }
 
 // MARK: - News List View

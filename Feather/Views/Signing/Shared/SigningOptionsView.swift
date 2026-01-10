@@ -3,78 +3,106 @@ import NimbleViews
 
 // MARK: - View
 struct SigningOptionsView: View {
-	@Binding var options: Options
-	var temporaryOptions: Options?
-	@State private var accentColor: Color = .accentColor
-	@State private var showPPQInfo = false
-	
-	// Check if any certificate has PPQCheck
-	private var hasCertificateWithPPQCheck: Bool {
-		let certificates = Storage.shared.getAllCertificates()
-		return certificates.contains { $0.ppQCheck }
-	}
-	
-	// MARK: Body
-	var body: some View {
-		if (temporaryOptions == nil) {
-			Section {
-				Toggle(isOn: Binding(
-					get: { options.ppqProtection },
-					set: { newValue in
-						// Only allow disabling if no certificate has PPQCheck
-						if !hasCertificateWithPPQCheck || newValue {
-							options.ppqProtection = newValue
-						}
-					}
-				)) {
-					Label(.localized("PPQ Protection"), systemImage: "shield.checkered")
-				}
-				.disabled(hasCertificateWithPPQCheck)
-				
-				Button {
-					HapticsManager.shared.impact()
-					showPPQInfo = true
-				} label: {
-					HStack(spacing: 12) {
-						Image(systemName: "questionmark.circle.fill")
-							.foregroundStyle(
-								LinearGradient(
-									colors: [accentColor, accentColor.opacity(0.7)],
-									startPoint: .topLeading,
-									endPoint: .bottomTrailing
-								)
-							)
-						Text(.localized("What is PPQ?"))
-							.foregroundStyle(.primary)
-						Spacer()
-						Image(systemName: "chevron.right")
-							.font(.caption)
-							.foregroundStyle(.tertiary)
-					}
-				}
-			} header: {
-				HStack(spacing: 8) {
-					Image(systemName: "shield.lefthalf.filled")
-						.font(.subheadline)
-						.foregroundStyle(
-							LinearGradient(
-								colors: [accentColor, accentColor.opacity(0.7)],
-								startPoint: .topLeading,
-								endPoint: .bottomTrailing
-							)
-						)
-					Text(.localized("Protection"))
-						.fontWeight(.semibold)
-				}
-				.textCase(.none)
-			} footer: {
-				if hasCertificateWithPPQCheck {
-					Text(.localized("PPQ Protection is automatically enabled and required because one or more of your certificates has PPQCheck. This helps protect your Apple ID from being flagged."))
-				} else {
-					Text(.localized("Enabling any protection will append a random string to the Bundle Identifiers of the apps you sign, this is to ensure yours certificte does not get flagged or revoked by Apple."))
-				}
-			}
-		}
+    @Binding var options: Options
+    var temporaryOptions: Options?
+    @State private var accentColor: Color = .accentColor
+    @State private var showPPQInfo = false
+    @AppStorage("Feather.certificateExperience") private var certificateExperience: String = "Developer"
+    
+    // Check if any certificate has PPQCheck
+    private var hasCertificateWithPPQCheck: Bool {
+        let certificates = Storage.shared.getAllCertificates()
+        return certificates.contains { $0.ppQCheck }
+    }
+    
+    // Check if Enterprise certificate type is selected
+    private var isEnterpriseCertificate: Bool {
+        certificateExperience == "Enterprise"
+    }
+    
+    // PPQ Protection should be forced ON if Enterprise OR if any cert has PPQCheck
+    private var isPPQProtectionForced: Bool {
+        isEnterpriseCertificate || hasCertificateWithPPQCheck
+    }
+    
+    // MARK: Body
+    var body: some View {
+        if (temporaryOptions == nil) {
+            Section {
+                Toggle(isOn: Binding(
+                    get: { 
+                        // Always return true if forced
+                        isPPQProtectionForced ? true : options.ppqProtection 
+                    },
+                    set: { newValue in
+                        // Only allow disabling if not forced
+                        if !isPPQProtectionForced || newValue {
+                            options.ppqProtection = newValue
+                        }
+                    }
+                )) {
+                    Label(.localized("PPQ Protection"), systemImage: "shield.checkered")
+                }
+                .disabled(isPPQProtectionForced)
+                
+                Button {
+                    HapticsManager.shared.impact()
+                    showPPQInfo = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "questionmark.circle.fill")
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [accentColor, accentColor.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        Text(.localized("What is PPQ?"))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            } header: {
+                HStack(spacing: 8) {
+                    Image(systemName: "shield.lefthalf.filled")
+                        .font(.subheadline)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [accentColor, accentColor.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    Text(.localized("Protection"))
+                        .fontWeight(.semibold)
+                }
+                .textCase(.none)
+            } footer: {
+                if isEnterpriseCertificate {
+                    Text(.localized("PPQ Protection is automatically enabled and required for Enterprise certificates. This helps protect your certificate from being revoked by Apple."))
+                } else if hasCertificateWithPPQCheck {
+                    Text(.localized("PPQ Protection is automatically enabled and required because one or more of your certificates has PPQCheck. This helps protect your Apple ID from being flagged."))
+                } else {
+                    Text(.localized("Enabling any protection will append a random string to the Bundle Identifiers of the apps you sign, this is to ensure yours certificte does not get flagged or revoked by Apple."))
+                }
+            }
+            .onAppear {
+                // Force enable PPQ Protection when Enterprise is selected
+                if isPPQProtectionForced && !options.ppqProtection {
+                    options.ppqProtection = true
+                }
+            }
+            .onChange(of: certificateExperience) { _ in
+                // Force enable PPQ Protection when switching to Enterprise
+                if isPPQProtectionForced && !options.ppqProtection {
+                    options.ppqProtection = true
+                }
+            }
+        }
 		
 		Section {
 			Self.picker(

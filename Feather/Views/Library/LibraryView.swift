@@ -3,109 +3,118 @@ import CoreData
 import NimbleViews
 import Combine
 
-// MARK: - View
+// MARK: - Modern Library View with Blue Gradient Background
 struct LibraryView: View {
-	@Environment(\.managedObjectContext) private var viewContext
-	@AppStorage("Feather.useGradients") private var _useGradients: Bool = true
-	
-	@StateObject var downloadManager = DownloadManager.shared
-	
-	@State private var _selectedInfoAppPresenting: AnyApp?
-	@State private var _selectedSigningAppPresenting: AnyApp?
-	@State private var _selectedInstallAppPresenting: AnyApp?
-	@State private var _selectedInstallModifyAppPresenting: AnyApp?
-	@State private var _isImportingPresenting = false
-	@State private var _isDownloadingPresenting = false
-	@State private var _showImportAnimation = false
-	@State private var _importStatus: ImportStatus = .loading
-	@State private var _importedAppName: String = ""
-	@State private var _importErrorMessage: String = ""
-	@State private var _currentDownloadId: String = ""
-	@State private var _downloadProgress: Double = 0.0
-	
-	enum ImportStatus {
-		case loading
-		case downloading
-		case processing
-		case success
-		case failed
-	}
-	
-	@State private var _searchText = ""
-	@State private var _filterMode: FilterMode = .all
-	
-	enum FilterMode: String, CaseIterable {
-		case all = "All"
-		case unsigned = "Unsigned"
-		case signed = "Signed"
-	}
-	
-	@Namespace private var _namespace
-	
-	// MARK: Fetch - Single source of truth using @FetchRequest
-	@FetchRequest(
-		entity: Signed.entity(),
-		sortDescriptors: [NSSortDescriptor(keyPath: \Signed.date, ascending: false)],
-		animation: .default
-	) private var _signedApps: FetchedResults<Signed>
-	
-	@FetchRequest(
-		entity: Imported.entity(),
-		sortDescriptors: [NSSortDescriptor(keyPath: \Imported.date, ascending: false)],
-		animation: .default
-	) private var _importedApps: FetchedResults<Imported>
-	
-	// Computed property for filtered apps - reactive to FetchRequest changes
-	private var filteredSignedApps: [Signed] {
-		_signedApps.filter { app in
-			_searchText.isEmpty || (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false)
-		}
-	}
-	
-	private var filteredImportedApps: [Imported] {
-		_importedApps.filter { app in
-			_searchText.isEmpty || (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false)
-		}
-	}
-	
-	// Combined apps based on filter mode
-	private var displayedApps: [AppInfoPresentable] {
-		switch _filterMode {
-		case .all:
-			return Array(filteredSignedApps) + Array(filteredImportedApps)
-		case .unsigned:
-			return Array(filteredImportedApps)
-		case .signed:
-			return Array(filteredSignedApps)
-		}
-	}
-	
-	// Total app count for display
-	private var totalAppCount: Int {
-		_signedApps.count + _importedApps.count
-	}
-	
-	// MARK: Body
-	var body: some View {
-		NavigationStack {
-			ZStack {
-				Color(uiColor: .systemBackground).ignoresSafeArea()
-				
-				ScrollView {
-					LazyVStack(alignment: .center, spacing: 16) {
-						// Header with title and plus button
-						headerView
-						
-						// Segmented Control for filter
-						filterPicker
-						
-						// Apps content
-						appsContent
-					}
-					.padding(.bottom, 100)
-				}
-			}
-			.navigationBarHidden(true)
+    @Environment(\.managedObjectContext) private var viewContext
+    @AppStorage("Feather.useGradients") private var _useGradients: Bool = true
+    
+    @StateObject var downloadManager = DownloadManager.shared
+    
+    @State private var _selectedInfoAppPresenting: AnyApp?
+    @State private var _selectedSigningAppPresenting: AnyApp?
+    @State private var _selectedInstallAppPresenting: AnyApp?
+    @State private var _selectedInstallModifyAppPresenting: AnyApp?
+    @State private var _isImportingPresenting = false
+    @State private var _isDownloadingPresenting = false
+    @State private var _showImportAnimation = false
+    @State private var _importStatus: ImportStatus = .loading
+    @State private var _importedAppName: String = ""
+    @State private var _importErrorMessage: String = ""
+    @State private var _currentDownloadId: String = ""
+    @State private var _downloadProgress: Double = 0.0
+    
+    enum ImportStatus {
+        case loading
+        case downloading
+        case processing
+        case success
+        case failed
+    }
+    
+    @State private var _searchText = ""
+    @State private var _filterMode: FilterMode = .all
+    
+    enum FilterMode: String, CaseIterable {
+        case all = "All"
+        case unsigned = "Unsigned"
+        case signed = "Signed"
+    }
+    
+    @Namespace private var _namespace
+    
+    @FetchRequest(
+        entity: Signed.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \Signed.date, ascending: false)],
+        animation: .default
+    ) private var _signedApps: FetchedResults<Signed>
+    
+    @FetchRequest(
+        entity: Imported.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \Imported.date, ascending: false)],
+        animation: .default
+    ) private var _importedApps: FetchedResults<Imported>
+    
+    private var filteredSignedApps: [Signed] {
+        _signedApps.filter { app in
+            _searchText.isEmpty || (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false)
+        }
+    }
+    
+    private var filteredImportedApps: [Imported] {
+        _importedApps.filter { app in
+            _searchText.isEmpty || (app.name?.localizedCaseInsensitiveContains(_searchText) ?? false)
+        }
+    }
+    
+    private var displayedApps: [AppInfoPresentable] {
+        switch _filterMode {
+        case .all:
+            return Array(filteredSignedApps) + Array(filteredImportedApps)
+        case .unsigned:
+            return Array(filteredImportedApps)
+        case .signed:
+            return Array(filteredSignedApps)
+        }
+    }
+    
+    private var totalAppCount: Int {
+        _signedApps.count + _importedApps.count
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Full screen vertical blue gradient background
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.05, green: 0.10, blue: 0.25),
+                        Color(red: 0.08, green: 0.15, blue: 0.35),
+                        Color(red: 0.10, green: 0.18, blue: 0.40),
+                        Color(red: 0.06, green: 0.12, blue: 0.30)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Custom navigation area
+                        customNavigationBar
+                        
+                        VStack(spacing: 20) {
+                            // Filter chips
+                            filterChips
+                            
+                            // Apps content
+                            appsContent
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 100)
+                    }
+                }
+            }
+            .navigationBarHidden(true)
 			.sheet(item: $_selectedInfoAppPresenting) { app in
 				LibraryInfoView(app: app.base)
 			}
@@ -401,544 +410,366 @@ struct LibraryView: View {
 
 // MARK: - Extension: View Components
 extension LibraryView {
-	// MARK: Header View
-	@ViewBuilder
-	private var headerView: some View {
-		HStack {
-			Spacer()
-			
-			Text("Library")
-				.font(.title2)
-				.fontWeight(.semibold)
-				.foregroundStyle(.primary)
-			
-			Spacer()
-		}
-		.padding(.top, 10)
-		.overlay(
-			HStack {
-				Spacer()
-				Menu {
-					_importActions()
-				} label: {
-					Image(systemName: "plus")
-						.font(.system(size: 18, weight: .semibold))
-						.foregroundStyle(.white)
-						.frame(width: 32, height: 32)
-						.background(
-							Circle()
-								.fill(Color.accentColor)
-						)
-				}
-			}
-			.padding(.horizontal, 20),
-			alignment: .topTrailing
-		)
-	}
-	
-	// MARK: Filter Picker
-	@ViewBuilder
-	private var filterPicker: some View {
-		Picker("Filter", selection: $_filterMode) {
-			ForEach(FilterMode.allCases, id: \.self) { mode in
-				Text(mode.rawValue).tag(mode)
-			}
-		}
-		.pickerStyle(.segmented)
-		.padding(.horizontal, 20)
-	}
-	
-	// MARK: Apps Content
-	@ViewBuilder
-	private var appsContent: some View {
-		if displayedApps.isEmpty {
-			emptyStateView
-		} else {
-			appsList
-		}
-	}
-	
-	// MARK: Empty State View
-	@ViewBuilder
-	private var emptyStateView: some View {
-		VStack(spacing: 20) {
-			Spacer(minLength: 60)
-			
-			Image(systemName: "questionmark.app.fill")
-				.font(.system(size: 60))
-				.foregroundStyle(.secondary)
-			
-			Text("No Apps")
-				.font(.title2)
-				.fontWeight(.bold)
-				.foregroundStyle(.primary)
-			
-			Text("Get started by importing your first IPA file.")
-				.font(.subheadline)
-				.foregroundStyle(.secondary)
-				.multilineTextAlignment(.center)
-			
-			Menu {
-				_importActions()
-			} label: {
-				Text("Import")
-					.fontWeight(.semibold)
-					.foregroundStyle(.white)
-					.padding(.horizontal, 24)
-					.padding(.vertical, 12)
-					.background(
-						Capsule()
-							.fill(Color.accentColor)
-					)
-			}
-			
-			Spacer(minLength: 60)
-		}
-		.frame(maxWidth: .infinity)
-		.padding()
-	}
-	
-	// MARK: Apps List - Using LazyVStack for proper rendering
-	@ViewBuilder
-	private var appsList: some View {
-		LazyVStack(spacing: 0) {
-			ForEach(displayedApps, id: \.uuid) { app in
-				LibraryAppRow(
-					app: app,
-					selectedInfoAppPresenting: $_selectedInfoAppPresenting,
-					selectedSigningAppPresenting: $_selectedSigningAppPresenting,
-					selectedInstallAppPresenting: $_selectedInstallAppPresenting
-				)
-				.id(app.uuid)
-				
-				if app.uuid != displayedApps.last?.uuid {
-					Divider()
-						.padding(.leading, 72)
-				}
-			}
-		}
-		.padding(.horizontal, 16)
-		.background(
-			RoundedRectangle(cornerRadius: 12, style: .continuous)
-				.fill(Color(uiColor: .secondarySystemGroupedBackground))
-		)
-		.padding(.horizontal, 16)
-	}
-	
-	@ViewBuilder
-	private func _importActions() -> some View {
-		Button(.localized("Import from Files"), systemImage: "folder") {
-			_isImportingPresenting = true
-		}
-		Button(.localized("Import from URL"), systemImage: "globe") {
-			_isDownloadingPresenting = true
-		}
-	}
-	
-	private func exportApp(_ app: AppInfoPresentable) {
-		guard app.isSigned, let archiveURL = app.archiveURL else { return }
-		UIActivityViewController.show(activityItems: [archiveURL])
-		HapticsManager.shared.success()
-	}
+    // MARK: - Custom Navigation Bar
+    private var customNavigationBar: some View {
+        HStack(spacing: 16) {
+            Spacer()
+            
+            Text("Library")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            
+            Spacer()
+        }
+        .overlay(alignment: .trailing) {
+            Menu {
+                _importActions()
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.green)
+                }
+            }
+            .padding(.trailing, 20)
+        }
+        .padding(.top, 16)
+        .padding(.bottom, 20)
+    }
+    
+    // MARK: - Filter Chips
+    private var filterChips: some View {
+        HStack(spacing: 12) {
+            ForEach(FilterMode.allCases, id: \.self) { mode in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        _filterMode = mode
+                    }
+                } label: {
+                    Text(mode.rawValue)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(_filterMode == mode ? .white : .white.opacity(0.6))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    _filterMode == mode
+                                    ? LinearGradient(
+                                        colors: [.cyan, .blue],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                    : LinearGradient(
+                                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
+                        .shadow(color: _filterMode == mode ? .cyan.opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+                }
+            }
+            
+            Spacer()
+        }
+    }
+    
+    // MARK: - Apps Content
+    @ViewBuilder
+    private var appsContent: some View {
+        if displayedApps.isEmpty {
+            emptyStateView
+        } else {
+            LazyVStack(spacing: 14) {
+                ForEach(displayedApps, id: \.uuid) { app in
+                    PremiumAppCard(
+                        app: app,
+                        selectedInfoAppPresenting: $_selectedInfoAppPresenting,
+                        selectedSigningAppPresenting: $_selectedSigningAppPresenting,
+                        selectedInstallAppPresenting: $_selectedInstallAppPresenting
+                    )
+                    .id(app.uuid)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Empty State View
+    @ViewBuilder
+    private var emptyStateView: some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 60)
+            
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.cyan.opacity(0.3), Color.blue.opacity(0.2)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 20)
+                
+                Image(systemName: "questionmark.app.fill")
+                    .font(.system(size: 50, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.cyan, .blue],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+            
+            VStack(spacing: 12) {
+                Text("No Apps")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                
+                Text("Get started by importing your first IPA file.")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+            }
+            
+            Menu {
+                _importActions()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("Import")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 14)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [.cyan, .blue],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                )
+                .shadow(color: .cyan.opacity(0.4), radius: 12, x: 0, y: 6)
+            }
+            
+            Spacer(minLength: 60)
+        }
+    }
+    
+    @ViewBuilder
+    private func _importActions() -> some View {
+        Button(String.localized("Import from Files"), systemImage: "folder") {
+            _isImportingPresenting = true
+        }
+        Button(String.localized("Import from URL"), systemImage: "globe") {
+            _isDownloadingPresenting = true
+        }
+    }
+    
+    private func exportApp(_ app: AppInfoPresentable) {
+        guard app.isSigned, let archiveURL = app.archiveURL else { return }
+        UIActivityViewController.show(activityItems: [archiveURL])
+        HapticsManager.shared.success()
+    }
 }
 
-// MARK: - Library App Row (Pure SwiftUI)
+// MARK: - Premium App Card (Glassy Dark Gradient)
+struct PremiumAppCard: View {
+    let app: AppInfoPresentable
+    @Binding var selectedInfoAppPresenting: AnyApp?
+    @Binding var selectedSigningAppPresenting: AnyApp?
+    @Binding var selectedInstallAppPresenting: AnyApp?
+    
+    @State private var dominantColor: Color = .cyan
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // Elevated app icon container
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                dominantColor.opacity(0.4),
+                                dominantColor.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 60, height: 60)
+                    .shadow(color: dominantColor.opacity(0.4), radius: 8, x: 0, y: 4)
+                
+                FRAppIconView(app: app, size: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(app.name ?? String.localized("Unknown"))
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                
+                if let identifier = app.identifier {
+                    Text(identifier)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
+                }
+                
+                HStack(spacing: 8) {
+                    if let version = app.version {
+                        Text("v\(version)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(dominantColor)
+                    }
+                    
+                    if app.isSigned {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 10))
+                            Text("Signed")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(.green)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // Action button
+            Button {
+                if app.isSigned {
+                    selectedInstallAppPresenting = AnyApp(base: app)
+                } else {
+                    selectedSigningAppPresenting = AnyApp(base: app)
+                }
+            } label: {
+                Text(app.isSigned ? "Install" : "Sign")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: app.isSigned ? [.green, .green.opacity(0.8)] : [.cyan, .blue],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                    )
+                    .shadow(color: (app.isSigned ? Color.green : Color.cyan).opacity(0.4), radius: 8, x: 0, y: 4)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .background(
+            ZStack {
+                // Glassy dark gradient background
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.12, green: 0.18, blue: 0.35),
+                                Color(red: 0.08, green: 0.12, blue: 0.28)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Inner highlight for glassy effect
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.2),
+                                .white.opacity(0.05),
+                                .clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+                
+                // Subtle accent glow
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(dominantColor.opacity(0.05))
+            }
+        )
+        .shadow(color: Color.black.opacity(0.3), radius: 12, x: 0, y: 8)
+        .shadow(color: dominantColor.opacity(0.1), radius: 16, x: 0, y: 10)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selectedInfoAppPresenting = AnyApp(base: app)
+        }
+        .contextMenu {
+            Button {
+                selectedInfoAppPresenting = AnyApp(base: app)
+            } label: {
+                Label(String.localized("Get Info"), systemImage: "info.circle.fill")
+            }
+            
+            if app.isSigned {
+                Button {
+                    selectedInstallAppPresenting = AnyApp(base: app)
+                } label: {
+                    Label(String.localized("Install"), systemImage: "arrow.down.circle.fill")
+                }
+                Button {
+                    selectedSigningAppPresenting = AnyApp(base: app)
+                } label: {
+                    Label(String.localized("Re-sign"), systemImage: "signature")
+                }
+            } else {
+                Button {
+                    selectedSigningAppPresenting = AnyApp(base: app)
+                } label: {
+                    Label(String.localized("Sign"), systemImage: "signature")
+                }
+            }
+            
+            Divider()
+            
+            Button(role: .destructive) {
+                Storage.shared.deleteApp(for: app)
+            } label: {
+                Label(String.localized("Delete"), systemImage: "trash.fill")
+            }
+        }
+    }
+}
+
+// MARK: - Legacy Support Structures (kept for compatibility)
 struct LibraryAppRow: View {
-	let app: AppInfoPresentable
-	@Binding var selectedInfoAppPresenting: AnyApp?
-	@Binding var selectedSigningAppPresenting: AnyApp?
-	@Binding var selectedInstallAppPresenting: AnyApp?
-	
-	var body: some View {
-		HStack(spacing: 12) {
-			// App Icon
-			FRAppIconView(app: app, size: 48)
-				.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-				.shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-			
-			// App Info
-			VStack(alignment: .leading, spacing: 2) {
-				Text(app.name ?? .localized("Unknown"))
-					.font(.system(size: 15, weight: .semibold))
-					.foregroundStyle(.primary)
-					.lineLimit(1)
-				
-				if let identifier = app.identifier {
-					Text(identifier)
-						.font(.system(size: 12))
-						.foregroundStyle(.secondary)
-						.lineLimit(1)
-				}
-				
-				if let version = app.version {
-					Text("v\(version)")
-						.font(.system(size: 11))
-						.foregroundStyle(.tertiary)
-						.lineLimit(1)
-				}
-			}
-			
-			Spacer()
-			
-			// Action Button
-			Button {
-				if app.isSigned {
-					selectedInstallAppPresenting = AnyApp(base: app)
-				} else {
-					selectedSigningAppPresenting = AnyApp(base: app)
-				}
-			} label: {
-				Image(systemName: app.isSigned ? "arrow.down.circle.fill" : "signature")
-					.font(.system(size: 22))
-					.foregroundStyle(app.isSigned ? Color.green : Color.accentColor)
-					.frame(width: 36, height: 36)
-			}
-			.buttonStyle(.plain)
-		}
-		.padding(.horizontal, 12)
-		.padding(.vertical, 10)
-		.contentShape(Rectangle())
-		.onTapGesture {
-			selectedInfoAppPresenting = AnyApp(base: app)
-		}
-		.contextMenu {
-			Button {
-				selectedInfoAppPresenting = AnyApp(base: app)
-			} label: {
-				Label(.localized("Get Info"), systemImage: "info.circle.fill")
-			}
-			
-			if app.isSigned {
-				Button {
-					selectedInstallAppPresenting = AnyApp(base: app)
-				} label: {
-					Label(.localized("Install"), systemImage: "arrow.down.circle.fill")
-				}
-				Button {
-					selectedSigningAppPresenting = AnyApp(base: app)
-				} label: {
-					Label(.localized("Re-sign"), systemImage: "signature")
-				}
-			} else {
-				Button {
-					selectedSigningAppPresenting = AnyApp(base: app)
-				} label: {
-					Label(.localized("Sign"), systemImage: "signature")
-				}
-			}
-			
-			Divider()
-			
-			Button(role: .destructive) {
-				Storage.shared.deleteApp(for: app)
-			} label: {
-				Label(.localized("Delete"), systemImage: "trash.fill")
-			}
-		}
-	}
+    let app: AppInfoPresentable
+    @Binding var selectedInfoAppPresenting: AnyApp?
+    @Binding var selectedSigningAppPresenting: AnyApp?
+    @Binding var selectedInstallAppPresenting: AnyApp?
+    
+    var body: some View {
+        PremiumAppCard(
+            app: app,
+            selectedInfoAppPresenting: $selectedInfoAppPresenting,
+            selectedSigningAppPresenting: $selectedSigningAppPresenting,
+            selectedInstallAppPresenting: $selectedInstallAppPresenting
+        )
+    }
 }
 
-// MARK: - Compact Library Row (New Design)
-struct CompactLibraryRow: View {
-	var app: AppInfoPresentable
-	@Binding var selectedInfoAppPresenting: AnyApp?
-	@Binding var selectedSigningAppPresenting: AnyApp?
-	@Binding var selectedInstallAppPresenting: AnyApp?
-	
-	var body: some View {
-		HStack(spacing: 12) {
-			// Left: Smaller App Icon
-			FRAppIconView(app: app, size: 48)
-				.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-				.shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
-				.onTapGesture {
-					selectedInfoAppPresenting = AnyApp(base: app)
-				}
-			
-			// Middle: Text Stack (app name, bundle ID, version)
-			VStack(alignment: .leading, spacing: 2) {
-				Text(app.name ?? .localized("Unknown"))
-					.font(.system(size: 15, weight: .semibold))
-					.foregroundStyle(.primary)
-					.lineLimit(1)
-				
-				if let identifier = app.identifier {
-					Text(identifier)
-						.font(.system(size: 12))
-						.foregroundStyle(.secondary)
-						.lineLimit(1)
-				}
-				
-				if let version = app.version {
-					Text("v\(version)")
-						.font(.system(size: 11))
-						.foregroundStyle(.tertiary)
-						.lineLimit(1)
-				}
-			}
-			
-			Spacer()
-			
-			// Right: Small signing icon button (no text)
-			Button {
-				if app.isSigned {
-					selectedInstallAppPresenting = AnyApp(base: app)
-				} else {
-					selectedSigningAppPresenting = AnyApp(base: app)
-				}
-			} label: {
-				Image(systemName: app.isSigned ? "arrow.down.circle.fill" : "signature")
-					.font(.system(size: 20))
-					.foregroundStyle(app.isSigned ? Color.green : Color.accentColor)
-					.frame(width: 32, height: 32)
-			}
-			.buttonStyle(.plain)
-		}
-		.padding(.horizontal, 12)
-		.padding(.vertical, 10)
-		.contentShape(Rectangle())
-		.contextMenu {
-			Button {
-				selectedInfoAppPresenting = AnyApp(base: app)
-			} label: {
-				Label(.localized("Get Info"), systemImage: "info.circle.fill")
-			}
-			
-			if app.isSigned {
-				Button {
-					selectedInstallAppPresenting = AnyApp(base: app)
-				} label: {
-					Label(.localized("Install"), systemImage: "arrow.down.circle.fill")
-				}
-				Button {
-					selectedSigningAppPresenting = AnyApp(base: app)
-				} label: {
-					Label(.localized("Re-sign"), systemImage: "signature")
-				}
-			} else {
-				Button {
-					selectedSigningAppPresenting = AnyApp(base: app)
-				} label: {
-					Label(.localized("Sign"), systemImage: "signature")
-				}
-			}
-			
-			Divider()
-			
-			Button(role: .destructive) {
-				Storage.shared.deleteApp(for: app)
-			} label: {
-				Label(.localized("Delete"), systemImage: "trash.fill")
-			}
-		}
-	}
-}
-
-// MARK: - Library Card View (List)
-struct LibraryCardView: View {
-	var app: AppInfoPresentable
-	@Binding var selectedInfoAppPresenting: AnyApp?
-	@Binding var selectedSigningAppPresenting: AnyApp?
-	@Binding var selectedInstallAppPresenting: AnyApp?
-	
-	var certInfo: Date.ExpirationInfo? {
-		Storage.shared.getCertificate(from: app)?.expiration?.expirationInfo()
-	}
-	
-	var body: some View {
-		HStack(spacing: 12) {
-			// Left: App Icon (smaller) - tappable with modern menu
-			Menu {
-				Button {
-					selectedInfoAppPresenting = AnyApp(base: app)
-				} label: {
-					Label(.localized("Get Info"), systemImage: "info.circle.fill")
-				}
-				
-				if app.isSigned {
-					Button {
-						selectedInstallAppPresenting = AnyApp(base: app)
-					} label: {
-						Label(.localized("Install"), systemImage: "arrow.down.circle.fill")
-					}
-					Button {
-						selectedSigningAppPresenting = AnyApp(base: app)
-					} label: {
-						Label(.localized("Re-sign"), systemImage: "signature")
-					}
-				} else {
-					Button {
-						selectedSigningAppPresenting = AnyApp(base: app)
-					} label: {
-						Label(.localized("Sign"), systemImage: "signature")
-					}
-				}
-				
-				Divider()
-				
-				Button(role: .destructive) {
-					Storage.shared.deleteApp(for: app)
-				} label: {
-					Label(.localized("Delete"), systemImage: "trash.fill")
-				}
-			} label: {
-				FRAppIconView(app: app, size: 50)
-					.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-					.shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
-			}
-			.buttonStyle(.plain)
-			
-			// Middle: Text Stack
-			VStack(alignment: .leading, spacing: 3) {
-				Text(app.name ?? .localized("Unknown"))
-					.font(.system(size: 15, weight: .semibold))
-					.foregroundStyle(.primary)
-					.lineLimit(1)
-				
-				if let identifier = app.identifier {
-					Text(identifier)
-						.font(.system(size: 12))
-						.foregroundStyle(.secondary)
-						.lineLimit(1)
-				}
-				
-				HStack(spacing: 8) {
-					if let version = app.version {
-						Text("v\(version)")
-							.font(.system(size: 11))
-							.foregroundStyle(.secondary)
-							.lineLimit(1)
-					}
-					
-					if app.isSigned {
-						Text("Signed")
-							.font(.system(size: 11, weight: .medium))
-							.foregroundStyle(.green)
-					}
-				}
-			}
-			
-			Spacer()
-			
-			// Right: Action Button (smaller)
-			Button {
-				if app.isSigned {
-					selectedInstallAppPresenting = AnyApp(base: app)
-				} else {
-					selectedSigningAppPresenting = AnyApp(base: app)
-				}
-			} label: {
-				Text(app.isSigned ? "Install" : "Sign")
-					.font(.system(size: 13, weight: .semibold))
-					.foregroundStyle(.white)
-					.padding(.horizontal, 16)
-					.padding(.vertical, 8)
-					.background(
-						Capsule()
-							.fill(app.isSigned ? Color.green : Color.accentColor)
-					)
-			}
-			.buttonStyle(.plain)
-		}
-		.padding(12)
-		.background(Color(UIColor.secondarySystemGroupedBackground))
-		.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-	}
-}
-
-// MARK: - Library Grid Card View
-struct LibraryGridCardView: View {
-	var app: AppInfoPresentable
-	@Binding var selectedInfoAppPresenting: AnyApp?
-	@Binding var selectedSigningAppPresenting: AnyApp?
-	@Binding var selectedInstallAppPresenting: AnyApp?
-	
-	var body: some View {
-		VStack(spacing: 10) {
-			// App Icon (smaller) - tappable with modern menu
-			Menu {
-				Button {
-					selectedInfoAppPresenting = AnyApp(base: app)
-				} label: {
-					Label(.localized("Get Info"), systemImage: "info.circle.fill")
-				}
-				
-				if app.isSigned {
-					Button {
-						selectedInstallAppPresenting = AnyApp(base: app)
-					} label: {
-						Label(.localized("Install"), systemImage: "arrow.down.circle.fill")
-					}
-					Button {
-						selectedSigningAppPresenting = AnyApp(base: app)
-					} label: {
-						Label(.localized("Re-sign"), systemImage: "signature")
-					}
-				} else {
-					Button {
-						selectedSigningAppPresenting = AnyApp(base: app)
-					} label: {
-						Label(.localized("Sign"), systemImage: "signature")
-					}
-				}
-				
-				Divider()
-				
-				Button(role: .destructive) {
-					Storage.shared.deleteApp(for: app)
-				} label: {
-					Label(.localized("Delete"), systemImage: "trash.fill")
-				}
-			} label: {
-				FRAppIconView(app: app, size: 65)
-					.clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-					.shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
-			}
-			.buttonStyle(.plain)
-			
-			// Text Stack
-			VStack(spacing: 3) {
-				Text(app.name ?? .localized("Unknown"))
-					.font(.system(size: 13, weight: .semibold))
-					.foregroundStyle(.primary)
-					.lineLimit(1)
-					.multilineTextAlignment(.center)
-				
-				if let version = app.version {
-					Text("v\(version)")
-						.font(.system(size: 10))
-						.foregroundStyle(.secondary)
-						.lineLimit(1)
-				}
-				
-				if app.isSigned {
-					Text("Signed")
-						.font(.system(size: 9, weight: .medium))
-						.foregroundStyle(.green)
-				}
-			}
-			
-			// Action Button (smaller)
-			Text(app.isSigned ? "Install" : "Sign")
-				.font(.system(size: 12, weight: .semibold))
-				.foregroundStyle(.white)
-				.padding(.horizontal, 14)
-				.padding(.vertical, 6)
-				.background(
-					Capsule()
-						.fill(app.isSigned ? Color.green : Color.accentColor)
-				)
-				.onTapGesture {
-					if app.isSigned {
-						selectedInstallAppPresenting = AnyApp(base: app)
-					} else {
-						selectedSigningAppPresenting = AnyApp(base: app)
-					}
-				}
-		}
-		.frame(maxWidth: .infinity)
-		.padding(12)
-		.background(Color(UIColor.secondarySystemGroupedBackground))
-		.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-	}
-}

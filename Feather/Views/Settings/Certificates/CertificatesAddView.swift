@@ -3,135 +3,263 @@ import NimbleViews
 import UniformTypeIdentifiers
 import ZIPFoundation
 
-// MARK: - View
+// MARK: - Modern Compact Certificate Add View
 struct CertificatesAddView: View {
-	@Environment(\.dismiss) private var dismiss
-	
-	@State private var _p12URL: URL? = nil
-	@State private var _provisionURL: URL? = nil
-	@State private var _p12Password: String = ""
-	@State private var _certificateName: String = ""
-	
-	@State private var _isImportingP12Presenting = false
-	@State private var _isImportingMobileProvisionPresenting = false
-	@State private var _isImportingZipPresenting = false
-	
-	var saveButtonDisabled: Bool {
-		_p12URL == nil || _provisionURL == nil
-	}
-	
-	// MARK: Body
-	var body: some View {
-		NBNavigationView(.localized("New Certificate"), displayMode: .inline) {
-			ZStack {
-				// Background gradient
-				LinearGradient(
-					colors: [
-						Color.accentColor.opacity(0.03),
-						Color.clear
-					],
-					startPoint: .top,
-					endPoint: .bottom
-				)
-				.ignoresSafeArea()
-				
-				Form {
-					Section {
-						_importButton(.localized("Import P12 File"), file: _p12URL, iconName: "doc.badge.key.fill") {
-							_isImportingP12Presenting = true
-						}
-						_importButton(.localized("Import Provisioning File"), file: _provisionURL, iconName: "doc.fill.badge.gearshape") {
-							_isImportingMobileProvisionPresenting = true
-						}
-						_importButton(.localized("Import From ZIP"), file: nil, iconName: "doc.zipper.fill", showCheckmark: false) {
-							_isImportingZipPresenting = true
-						}
-					} header: {
-						HStack(spacing: 8) {
-							Image(systemName: "folder.fill.badge.plus")
-								.font(.caption)
-								.foregroundStyle(Color.accentColor)
-							Text(.localized("Files"))
-								.font(.subheadline)
-								.fontWeight(.medium)
-						}
-						.textCase(.none)
-					}
-					
-					Section {
-						HStack(spacing: 10) {
-							Image(systemName: "lock.shield.fill")
-								.foregroundStyle(Color.orange)
-								.font(.body)
-							SecureField(.localized("Password (Optional)"), text: $_p12Password)
-						}
-						.padding(.vertical, 2)
-						
-						HStack(spacing: 10) {
-							Image(systemName: "tag.fill")
-								.foregroundStyle(Color.accentColor)
-								.font(.body)
-							TextField(.localized("Nickname (Optional)"), text: $_certificateName)
-						}
-						.padding(.vertical, 2)
-					} header: {
-						HStack(spacing: 8) {
-							Image(systemName: "textformat")
-								.font(.caption)
-								.foregroundStyle(Color.accentColor)
-							Text(.localized("Certificate Details"))
-								.font(.subheadline)
-								.fontWeight(.medium)
-						}
-						.textCase(.none)
-					}
-				}
-				.scrollContentBackground(.hidden)
-			}
-			.toolbar {
-				NBToolbarButton(role: .cancel)
-				
-				NBToolbarButton(
-					.localized("Save"),
-					style: .text,
-					placement: .confirmationAction,
-					isDisabled: saveButtonDisabled
-				) {
-					_saveCertificate()
-				}
-			}
-			.sheet(isPresented: $_isImportingP12Presenting) {
-				FileImporterRepresentableView(
-					allowedContentTypes: [.p12],
-					onDocumentsPicked: { urls in
-						guard let selectedFileURL = urls.first else { return }
-						self._p12URL = selectedFileURL
-					}
-				)
-				.ignoresSafeArea()
-			}
-			.sheet(isPresented: $_isImportingMobileProvisionPresenting) {
-				FileImporterRepresentableView(
-					allowedContentTypes: [.mobileProvision],
-					onDocumentsPicked: { urls in
-						guard let selectedFileURL = urls.first else { return }
-						self._provisionURL = selectedFileURL
-					}
-				)
-				.ignoresSafeArea()
-			}
-			.sheet(isPresented: $_isImportingZipPresenting) {
-				FileImporterRepresentableView(
-					allowedContentTypes: [.certificateZip],
-					onDocumentsPicked: { urls in
-						guard let selectedFileURL = urls.first else { return }
-						_handleZipImport(selectedFileURL)
-					}
-				)
-				.ignoresSafeArea()
-			}
-		}
-	}
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var _p12URL: URL? = nil
+    @State private var _provisionURL: URL? = nil
+    @State private var _p12Password: String = ""
+    @State private var _certificateName: String = ""
+    
+    @State private var _isImportingP12Presenting = false
+    @State private var _isImportingMobileProvisionPresenting = false
+    @State private var _isImportingZipPresenting = false
+    
+    var saveButtonDisabled: Bool {
+        _p12URL == nil || _provisionURL == nil
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // Compact content without scrolling
+                VStack(spacing: 16) {
+                    // File Import Cards
+                    VStack(spacing: 10) {
+                        compactImportCard(
+                            title: "P12 Certificate",
+                            subtitle: _p12URL?.lastPathComponent ?? "Tap to select",
+                            icon: "key.fill",
+                            isSelected: _p12URL != nil,
+                            color: .orange
+                        ) {
+                            _isImportingP12Presenting = true
+                        }
+                        
+                        compactImportCard(
+                            title: "Provisioning Profile",
+                            subtitle: _provisionURL?.lastPathComponent ?? "Tap to select",
+                            icon: "doc.badge.gearshape.fill",
+                            isSelected: _provisionURL != nil,
+                            color: .blue
+                        ) {
+                            _isImportingMobileProvisionPresenting = true
+                        }
+                        
+                        // ZIP Import option
+                        Button {
+                            _isImportingZipPresenting = true
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "doc.zipper")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.purple)
+                                Text("Import from ZIP")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color(UIColor.tertiarySystemGroupedBackground))
+                            )
+                        }
+                    }
+                    
+                    // Divider
+                    Rectangle()
+                        .fill(Color(UIColor.separator).opacity(0.3))
+                        .frame(height: 1)
+                        .padding(.vertical, 4)
+                    
+                    // Input Fields
+                    VStack(spacing: 10) {
+                        // Password field
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.orange.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.orange)
+                            }
+                            
+                            SecureField("Password (Optional)", text: $_p12Password)
+                                .font(.system(size: 15))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color(UIColor.secondarySystemGroupedBackground))
+                        )
+                        
+                        // Nickname field
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.accentColor.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "tag.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.accentColor)
+                            }
+                            
+                            TextField("Nickname (Optional)", text: $_certificateName)
+                                .font(.system(size: 15))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color(UIColor.secondarySystemGroupedBackground))
+                        )
+                    }
+                    
+                    Spacer(minLength: 16)
+                    
+                    // Save Button
+                    Button {
+                        _saveCertificate()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                            Text("Save Certificate")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(
+                                    saveButtonDisabled
+                                    ? Color.gray.opacity(0.5)
+                                    : LinearGradient(
+                                        colors: [.green, .green.opacity(0.8)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
+                        .shadow(color: saveButtonDisabled ? .clear : .green.opacity(0.3), radius: 8, x: 0, y: 4)
+                    }
+                    .disabled(saveButtonDisabled)
+                }
+                .padding(20)
+            }
+            .background(Color(UIColor.systemGroupedBackground))
+            .navigationTitle("New Certificate")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+            .sheet(isPresented: $_isImportingP12Presenting) {
+                FileImporterRepresentableView(
+                    allowedContentTypes: [.p12],
+                    onDocumentsPicked: { urls in
+                        guard let selectedFileURL = urls.first else { return }
+                        self._p12URL = selectedFileURL
+                    }
+                )
+                .ignoresSafeArea()
+            }
+            .sheet(isPresented: $_isImportingMobileProvisionPresenting) {
+                FileImporterRepresentableView(
+                    allowedContentTypes: [.mobileProvision],
+                    onDocumentsPicked: { urls in
+                        guard let selectedFileURL = urls.first else { return }
+                        self._provisionURL = selectedFileURL
+                    }
+                )
+                .ignoresSafeArea()
+            }
+            .sheet(isPresented: $_isImportingZipPresenting) {
+                FileImporterRepresentableView(
+                    allowedContentTypes: [.certificateZip],
+                    onDocumentsPicked: { urls in
+                        guard let selectedFileURL = urls.first else { return }
+                        _handleZipImport(selectedFileURL)
+                    }
+                )
+                .ignoresSafeArea()
+            }
+        }
+    }
+    
+    // MARK: - Compact Import Card
+    @ViewBuilder
+    private func compactImportCard(
+        title: String,
+        subtitle: String,
+        icon: String,
+        isSelected: Bool,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            isSelected
+                            ? Color.green.opacity(0.15)
+                            : color.opacity(0.15)
+                        )
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(isSelected ? .green : color)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(isSelected ? .secondary : .primary)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(isSelected ? .green : .secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                if !isSelected {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(
+                                isSelected ? Color.green.opacity(0.3) : Color.clear,
+                                lineWidth: 1.5
+                            )
+                    )
+            )
+        }
+        .disabled(isSelected)
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
 }
 
 // MARK: - Extension: View

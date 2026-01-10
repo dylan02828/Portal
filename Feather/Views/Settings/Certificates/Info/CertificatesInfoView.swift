@@ -54,78 +54,447 @@ struct EntitlementMapping {
 	}
 }
 
-// MARK: - View
+// MARK: - Clean Modern Certificate Info View
 struct CertificatesInfoView: View {
-	@Environment(\.dismiss) var dismiss
-	@State var data: Certificate?
-	@State private var showPPQInfo = false
-	@State private var isEntitlementsExpanded = false
-	
-	var cert: CertificatePair
-	
-	// MARK: Body
-	var body: some View {
-		NBNavigationView("", displayMode: .inline) {
-			ScrollView {
-				VStack(spacing: 16) {
-					// Centered Header Title (smaller for native sheet look)
-					Text(cert.nickname ?? "Certificate")
-						.font(.title3)
-						.fontWeight(.semibold)
-						.foregroundStyle(.primary)
-						.frame(maxWidth: .infinity, alignment: .center)
-						.padding(.top, 8)
-					
-					if let data = data {
-						// Main Certificate Identifier Card
-						mainIdentifierCard(data: data)
-						
-						// Status Card
-						statusCard(data: data)
-						
-						// Team Information Card
-						teamInformationCard(data: data)
-						
-						// Validity Card
-						validityCard(data: data)
-						
-						// Platform Card
-						platformCard(data: data)
-						
-						// Provisioned Devices Card
-						if let devices = data.ProvisionedDevices, !devices.isEmpty {
-							provisionedDevicesCard(devices: devices)
-						}
-						
-						// Developer Certificates Card
-						developerCertificatesCard()
-						
-						// Entitlements Card
-						if let entitlements = data.Entitlements {
-							entitlementsCard(entitlements: entitlements)
-						}
-						
-						// Open in Files Section
-						openInFilesCard()
-					}
-				}
-				.padding(.horizontal, 16)
-				.padding(.bottom, 20)
-			}
-			.background(Color(UIColor.systemGroupedBackground))
-		}
-		.toolbar {
-			NBToolbarButton(role: .close)
-		}
-		.alert(.localized("What is PPQ?"), isPresented: $showPPQInfo) {
-			Button(.localized("OK"), role: .cancel) {}
-		} message: {
-			Text(.localized("PPQ is a check Apple has added to certificates. If you have this check, change your Bundle IDs when signing apps to avoid Apple revoking your certificates."))
-		}
-		.onAppear {
-			data = Storage.shared.getProvisionFileDecoded(for: cert)
-		}
-	}
+    @Environment(\.dismiss) var dismiss
+    @State var data: Certificate?
+    @State private var showPPQInfo = false
+    @State private var isEntitlementsExpanded = false
+    
+    var cert: CertificatePair
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    if let data = data {
+                        // Hero Header Card
+                        heroHeaderCard(data: data)
+                        
+                        // Quick Status Row
+                        quickStatusRow(data: data)
+                        
+                        // Details Grid
+                        detailsGrid(data: data)
+                        
+                        // Validity Timeline
+                        validityTimeline(data: data)
+                        
+                        // Platforms
+                        if !data.Platform.isEmpty {
+                            platformsSection(data: data)
+                        }
+                        
+                        // Devices
+                        if let devices = data.ProvisionedDevices, !devices.isEmpty {
+                            devicesSection(devices: devices)
+                        }
+                        
+                        // Entitlements
+                        if let entitlements = data.Entitlements {
+                            entitlementsSection(entitlements: entitlements)
+                        }
+                        
+                        // Actions
+                        actionsSection()
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color(UIColor.systemGroupedBackground))
+            .navigationTitle(cert.nickname ?? "Certificate")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .alert(String.localized("What is PPQ?"), isPresented: $showPPQInfo) {
+            Button(String.localized("OK"), role: .cancel) {}
+        } message: {
+            Text(String.localized("PPQ is a check Apple has added to certificates. If you have this check, change your Bundle IDs when signing apps to avoid Apple revoking your certificates."))
+        }
+        .onAppear {
+            data = Storage.shared.getProvisionFileDecoded(for: cert)
+        }
+    }
+    
+    // MARK: - Hero Header Card
+    @ViewBuilder
+    private func heroHeaderCard(data: Certificate) -> some View {
+        VStack(spacing: 16) {
+            // Icon and Name
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.blue, .purple],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 60, height: 60)
+                    
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(data.Name)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    
+                    Text(data.AppIDName)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+    }
+    
+    // MARK: - Quick Status Row
+    @ViewBuilder
+    private func quickStatusRow(data: Certificate) -> some View {
+        HStack(spacing: 12) {
+            // Status Badge
+            statusBadge(
+                title: cert.revoked ? "Revoked" : "Active",
+                icon: cert.revoked ? "xmark.circle.fill" : "checkmark.circle.fill",
+                color: cert.revoked ? .red : .green
+            )
+            
+            // PPQ Badge
+            if let ppq = data.PPQCheck {
+                statusBadge(
+                    title: ppq ? "PPQ Check" : "No PPQ",
+                    icon: ppq ? "exclamationmark.shield.fill" : "shield.fill",
+                    color: ppq ? .orange : .green
+                )
+            }
+            
+            Spacer()
+        }
+    }
+    
+    @ViewBuilder
+    private func statusBadge(title: String, icon: String, color: Color) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(color.opacity(0.12))
+        )
+    }
+    
+    // MARK: - Details Grid
+    @ViewBuilder
+    private func detailsGrid(data: Certificate) -> some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                detailCard(title: "Team", value: data.TeamName, icon: "person.3.fill", color: .blue)
+            }
+            
+            HStack(spacing: 12) {
+                detailCard(title: "Team ID", value: data.TeamIdentifier.first ?? "-", icon: "number", color: .purple)
+                detailCard(title: "UUID", value: String(data.UUID.prefix(8)) + "...", icon: "barcode", color: .indigo)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func detailCard(title: String, value: String, icon: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            
+            Text(value)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+    }
+    
+    // MARK: - Validity Timeline
+    @ViewBuilder
+    private func validityTimeline(data: Certificate) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Validity")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+            
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Created")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text(data.CreationDate.formatted(date: .abbreviated, time: .omitted))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+                
+                Spacer()
+                
+                // Progress indicator
+                let progress = calculateProgress(created: data.CreationDate, expires: data.ExpirationDate)
+                ZStack {
+                    Circle()
+                        .stroke(Color.secondary.opacity(0.2), lineWidth: 4)
+                        .frame(width: 50, height: 50)
+                    
+                    Circle()
+                        .trim(from: 0, to: CGFloat(progress))
+                        .stroke(progressColor(for: progress), style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .frame(width: 50, height: 50)
+                        .rotationEffect(.degrees(-90))
+                    
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(progressColor(for: progress))
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Expires")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text(data.ExpirationDate.formatted(date: .abbreviated, time: .omitted))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(data.ExpirationDate.expirationInfo().color)
+                }
+            }
+            
+            // Remaining text
+            Text(data.ExpirationDate.expirationInfo().formatted)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(data.ExpirationDate.expirationInfo().color)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+    }
+    
+    // MARK: - Platforms Section
+    @ViewBuilder
+    private func platformsSection(data: Certificate) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Platforms")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+            
+            HStack(spacing: 8) {
+                ForEach(data.Platform, id: \.self) { platform in
+                    HStack(spacing: 6) {
+                        Image(systemName: platformIcon(for: platform))
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(platform)
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color.accentColor)
+                    )
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+    }
+    
+    // MARK: - Devices Section
+    @ViewBuilder
+    private func devicesSection(devices: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Provisioned Devices")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Text("\(devices.count)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.accentColor))
+            }
+            
+            VStack(spacing: 6) {
+                ForEach(devices.prefix(5), id: \.self) { device in
+                    HStack {
+                        Image(systemName: "iphone")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Text(device)
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                    }
+                    .padding(.vertical, 4)
+                }
+                
+                if devices.count > 5 {
+                    Text("+ \(devices.count - 5) more devices")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+    }
+    
+    // MARK: - Entitlements Section
+    @ViewBuilder
+    private func entitlementsSection(entitlements: [String: Any]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isEntitlementsExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("Entitlements")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    Text("\(entitlements.count)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.purple))
+                    
+                    Image(systemName: isEntitlementsExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            if isEntitlementsExpanded {
+                VStack(spacing: 8) {
+                    ForEach(Array(entitlements.keys.sorted()), id: \.self) { key in
+                        HStack {
+                            Text(EntitlementMapping.humanReadableName(for: key))
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            Spacer()
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.green)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+    }
+    
+    // MARK: - Actions Section
+    @ViewBuilder
+    private func actionsSection() -> some View {
+        VStack(spacing: 10) {
+            Button {
+                if let p12URL = cert.p12URL {
+                    UIApplication.shared.open(p12URL)
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "doc.badge.arrow.up")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Open P12 in Files")
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .foregroundStyle(.primary)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(UIColor.secondarySystemGroupedBackground))
+                )
+            }
+            
+            Button {
+                if let provisionURL = cert.provisionURL {
+                    UIApplication.shared.open(provisionURL)
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "doc.badge.gearshape")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Open Provision in Files")
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .foregroundStyle(.primary)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(UIColor.secondarySystemGroupedBackground))
+                )
+            }
+        }
+    }
 	
 	// MARK: - Main Certificate Identifier Card
 	@ViewBuilder
