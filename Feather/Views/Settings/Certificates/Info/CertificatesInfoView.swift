@@ -449,7 +449,7 @@ struct CertificatesInfoView: View {
     private func actionsSection() -> some View {
         VStack(spacing: 10) {
             Button {
-                if let p12URL = cert.p12URL {
+                if let p12URL = Storage.shared.getFile(.certificate, from: cert) {
                     UIApplication.shared.open(p12URL)
                 }
             } label: {
@@ -472,7 +472,7 @@ struct CertificatesInfoView: View {
             }
             
             Button {
-                if let provisionURL = cert.provisionURL {
+                if let provisionURL = Storage.shared.getFile(.provision, from: cert) {
                     UIApplication.shared.open(provisionURL)
                 }
             } label: {

@@ -142,12 +142,12 @@ struct CertificatesAddView: View {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .fill(
                                     saveButtonDisabled
-                                    ? Color.gray.opacity(0.5)
-                                    : LinearGradient(
+                                    ? AnyShapeStyle(Color.gray.opacity(0.5))
+                                    : AnyShapeStyle(LinearGradient(
                                         colors: [.green, .green.opacity(0.8)],
                                         startPoint: .leading,
                                         endPoint: .trailing
-                                    )
+                                    ))
                                 )
                         )
                         .shadow(color: saveButtonDisabled ? .clear : .green.opacity(0.3), radius: 8, x: 0, y: 4)

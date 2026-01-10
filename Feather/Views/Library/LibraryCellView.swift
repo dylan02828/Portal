@@ -41,7 +41,6 @@ struct LibraryCellView: View {
     }
     
     var body: some View {
-        let isRegular = horizontalSizeClass != .compact
         let isEditing = editMode?.wrappedValue == .active
         
         HStack(spacing: 16) {

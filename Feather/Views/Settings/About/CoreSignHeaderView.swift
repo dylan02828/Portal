@@ -12,7 +12,6 @@ struct CoreSignHeaderView: View {
     // MARK: - Subtitle Definitions
     /// All available subtitle options as individual localized keys
     private let subtitles: [LocalizedStringKey] = [
-        "subtitle.ae_lovers",
         "subtitle.kravashit",
         "subtitle.wsf_top",
         "subtitle.just_when",
