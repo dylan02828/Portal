@@ -18,6 +18,7 @@ struct FeatherApp: App {
     @State private var hasDylibsDetected: Bool = false
     @State private var showUpdateBanner = false
     @State private var latestVersion: String = ""
+    @State private var navigateToUpdates = false
 
 	var body: some Scene {
 		WindowGroup(content: {
@@ -47,21 +48,18 @@ struct FeatherApp: App {
 					}
 				} else {
 					VStack(spacing: 0) {
-						// Update banner at the top
+						// Modern Update Available banner at the top
 						if showUpdateBanner && !updateBannerDismissed {
-							UpdateBannerView(
+							UpdateAvailableView(
 								version: latestVersion,
-								message: "New version available",
 								onDismiss: {
 									updateBannerDismissed = true
 									showUpdateBanner = false
 									AppLogManager.shared.info("Update banner dismissed", category: "Updates")
 								},
-								onUpdate: {
-									if let url = URL(string: "https://github.com/aoyn1xw/Portal/releases/latest") {
-										UIApplication.shared.open(url)
-									}
-									AppLogManager.shared.info("Opening GitHub releases page", category: "Updates")
+								onNavigateToUpdates: {
+									navigateToUpdates = true
+									AppLogManager.shared.info("Navigating to Check for Updates", category: "Updates")
 								}
 							)
 							.transition(.move(edge: .top).combined(with: .opacity))
@@ -71,6 +69,7 @@ struct FeatherApp: App {
 							.transition(.move(edge: .top).combined(with: .opacity))
 						VariedTabbarView()
 							.environment(\.managedObjectContext, storage.context)
+							.environment(\.navigateToUpdates, $navigateToUpdates)
 							.onOpenURL(perform: _handleURL)
 							.transition(.move(edge: .top).combined(with: .opacity))
 					}

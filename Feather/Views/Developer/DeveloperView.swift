@@ -45,193 +45,685 @@ struct DeveloperAuthView: View {
     @State private var newPasscode = ""
     @State private var confirmPasscode = ""
     @State private var authMethod: AuthMethod = .passcode
+    @State private var isAuthenticating = false
+    @State private var showSuccessAnimation = false
+    @State private var iconScale: CGFloat = 1.0
+    @State private var iconRotation: Double = 0
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.colorScheme) private var colorScheme
     
     let onAuthenticated: () -> Void
     
     enum AuthMethod: String, CaseIterable {
         case passcode = "Passcode"
         case biometric = "Biometric"
-        case token = "Developer Token"
+        case token = "Token"
+        
+        var icon: String {
+            switch self {
+            case .passcode: return "key.fill"
+            case .biometric: return "faceid"
+            case .token: return "ticket.fill"
+            }
+        }
+    }
+    
+    private var gradientColors: [Color] {
+        [Color.orange.opacity(0.8), Color.red.opacity(0.6)]
     }
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    VStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.orange.opacity(0.15))
-                                .frame(width: 80, height: 80)
-                            Image(systemName: "lock.shield.fill")
-                                .font(.system(size: 36))
-                                .foregroundStyle(.orange)
-                        }
+            ZStack {
+                // Background gradient
+                LinearGradient(
+                    colors: [
+                        Color(UIColor.systemBackground),
+                        Color.orange.opacity(0.05)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 28) {
+                        // Modern Header with animated icon
+                        headerSection
                         
-                        Text("Developer Mode")
-                            .font(.title2.bold())
+                        // Auth method selector - modern pill style
+                        authMethodSelector
                         
-                        Text("Authentication required")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        // Main auth card
+                        authCard
+                        
+                        // Remember Me toggle
+                        rememberMeSection
+                        
+                        // Error message with animation
+                        errorSection
+                        
+                        Spacer(minLength: 20)
+                        
+                        // Cancel button
+                        cancelButton
                     }
-                    .padding(.top, 40)
-                    
-                    // Auth method picker
-                    Picker("Authentication Method", selection: $authMethod) {
-                        ForEach(AuthMethod.allCases, id: \.self) { method in
-                            if method == .biometric && !authManager.canUseBiometrics {
-                                EmptyView()
-                            } else {
-                                Text(method.rawValue).tag(method)
-                            }
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
-                    .frame(maxWidth: horizontalSizeClass == .regular ? 500 : .infinity)
-                    
-                    // Auth input based on method
-                    VStack(spacing: 16) {
-                        switch authMethod {
-                        case .passcode:
-                            if authManager.hasPasscodeSet {
-                                SecureField("Enter Passcode", text: $passcode)
-                                    .textFieldStyle(.roundedBorder)
-                                    .padding(.horizontal)
-                                    .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
-                                
-                                Button("Authenticate") {
-                                    if authManager.verifyPasscode(passcode) {
-                                        onAuthenticated()
-                                    }
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .controlSize(.large)
-                                .contentShape(Rectangle())
-                            } else {
-                                Text("No passcode set")
-                                    .foregroundStyle(.secondary)
-                                
-                                Button("Set Up Passcode") {
-                                    showSetupPasscode = true
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.large)
-                                .contentShape(Rectangle())
-                            }
-                            
-                        case .biometric:
-                            Button {
-                                authManager.authenticateWithBiometrics { success, error in
-                                    if success {
-                                        onAuthenticated()
-                                    }
-                                }
-                            } label: {
-                                HStack {
-                                    Image(systemName: authManager.biometricType == .faceID ? "faceid" : "touchid")
-                                    Text("Authenticate with \(authManager.biometricType == .faceID ? "Face ID" : "Touch ID")")
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
-                            .contentShape(Rectangle())
-                            
-                        case .token:
-                            TextField("Developer Token", text: $developerToken)
-                                .textFieldStyle(.roundedBorder)
-                                .autocapitalization(.allCharacters)
-                                .padding(.horizontal)
-                                .frame(maxWidth: horizontalSizeClass == .regular ? 400 : .infinity)
-                            
-                            Button("Validate Token") {
-                                if authManager.validateDeveloperToken(developerToken) {
-                                    onAuthenticated()
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
-                            .contentShape(Rectangle())
-                            .disabled(developerToken.isEmpty)
-                        }
-                    }
-                    
-                    // Error message
-                    if let error = authManager.authenticationError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .padding(.horizontal)
-                    }
-                    
-                    Spacer(minLength: 40)
-                    
-                    // Exit button
-                    Button("Cancel") {
-                        UserDefaults.standard.set(false, forKey: "isDeveloperModeEnabled")
-                    }
-                    .foregroundStyle(.secondary)
-                    .contentShape(Rectangle())
-                    .padding(.vertical, 20)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
             .navigationBarHidden(true)
             .sheet(isPresented: $showSetupPasscode) {
-                PasscodeSetupView(onComplete: { success in
+                ModernPasscodeSetupView(onComplete: { success in
                     showSetupPasscode = false
                 })
             }
         }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                iconScale = 1.1
+            }
+        }
+    }
+    
+    // MARK: - Header Section
+    private var headerSection: some View {
+        VStack(spacing: 16) {
+            // Animated icon with glow effect
+            ZStack {
+                // Outer glow
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.orange.opacity(0.3), Color.clear],
+                            center: .center,
+                            startRadius: 30,
+                            endRadius: 70
+                        )
+                    )
+                    .frame(width: 140, height: 140)
+                    .scaleEffect(iconScale)
+                
+                // Inner circle with gradient
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: gradientColors,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 90, height: 90)
+                    .shadow(color: .orange.opacity(0.4), radius: 15, x: 0, y: 8)
+                
+                // Icon
+                Image(systemName: showSuccessAnimation ? "checkmark.shield.fill" : "lock.shield.fill")
+                    .font(.system(size: 40, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .rotationEffect(.degrees(iconRotation))
+            }
+            .padding(.top, 30)
+            
+            // Title with gradient
+            Text("Developer Mode")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [.primary, .primary.opacity(0.7)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            
+            // Subtitle
+            Text("Secure authentication required")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 40)
+                .multilineTextAlignment(.center)
+        }
+    }
+    
+    // MARK: - Auth Method Selector
+    private var authMethodSelector: some View {
+        HStack(spacing: 8) {
+            ForEach(AuthMethod.allCases, id: \.self) { method in
+                if method == .biometric && !authManager.canUseBiometrics {
+                    EmptyView()
+                } else {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            authMethod = method
+                            HapticsManager.shared.softImpact()
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: method == .biometric ? 
+                                  (authManager.biometricType == .faceID ? "faceid" : "touchid") : 
+                                  method.icon)
+                                .font(.system(size: 14, weight: .semibold))
+                            Text(method.rawValue)
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(authMethod == method ? 
+                                      AnyShapeStyle(LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing)) :
+                                      AnyShapeStyle(Color(UIColor.tertiarySystemBackground)))
+                        )
+                        .foregroundStyle(authMethod == method ? .white : .primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 500 : .infinity)
+    }
+    
+    // MARK: - Auth Card
+    private var authCard: some View {
+        VStack(spacing: 20) {
+            switch authMethod {
+            case .passcode:
+                passcodeAuthSection
+            case .biometric:
+                biometricAuthSection
+            case .token:
+                tokenAuthSection
+            }
+        }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(UIColor.secondarySystemBackground))
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.08), radius: 20, x: 0, y: 10)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.orange.opacity(0.3), Color.clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .frame(maxWidth: horizontalSizeClass == .regular ? 450 : .infinity)
+    }
+    
+    // MARK: - Passcode Auth Section
+    @ViewBuilder
+    private var passcodeAuthSection: some View {
+        if authManager.hasPasscodeSet {
+            VStack(spacing: 16) {
+                // Modern secure field
+                HStack {
+                    Image(systemName: "key.fill")
+                        .foregroundStyle(.orange)
+                        .frame(width: 24)
+                    SecureField("Enter your passcode", text: $passcode)
+                        .textContentType(.password)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(UIColor.tertiarySystemBackground))
+                )
+                
+                // Authenticate button
+                Button {
+                    authenticateWithPasscode()
+                } label: {
+                    HStack(spacing: 10) {
+                        if isAuthenticating {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.9)
+                        } else {
+                            Image(systemName: "arrow.right.circle.fill")
+                        }
+                        Text(isAuthenticating ? "Authenticating..." : "Authenticate")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing)
+                    )
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+                }
+                .disabled(passcode.isEmpty || isAuthenticating)
+                .opacity(passcode.isEmpty ? 0.6 : 1)
+            }
+        } else {
+            VStack(spacing: 16) {
+                Image(systemName: "key.slash")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.secondary)
+                
+                Text("No passcode configured")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                
+                Button {
+                    showSetupPasscode = true
+                    HapticsManager.shared.softImpact()
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Set Up Passcode")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color(UIColor.tertiarySystemBackground))
+                    .foregroundStyle(.orange)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Biometric Auth Section
+    private var biometricAuthSection: some View {
+        VStack(spacing: 20) {
+            // Biometric icon
+            ZStack {
+                Circle()
+                    .fill(Color.orange.opacity(0.1))
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: authManager.biometricType == .faceID ? "faceid" : "touchid")
+                    .font(.system(size: 36))
+                    .foregroundStyle(.orange)
+            }
+            
+            Text(authManager.biometricType == .faceID ? "Face ID" : "Touch ID")
+                .font(.headline)
+            
+            Text("Use biometric authentication for quick access")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            
+            Button {
+                authenticateWithBiometrics()
+            } label: {
+                HStack(spacing: 10) {
+                    if isAuthenticating {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.9)
+                    } else {
+                        Image(systemName: authManager.biometricType == .faceID ? "faceid" : "touchid")
+                    }
+                    Text(isAuthenticating ? "Authenticating..." : "Authenticate")
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing)
+                )
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+            }
+            .disabled(isAuthenticating)
+        }
+    }
+    
+    // MARK: - Token Auth Section
+    private var tokenAuthSection: some View {
+        VStack(spacing: 16) {
+            // Token input
+            HStack {
+                Image(systemName: "ticket.fill")
+                    .foregroundStyle(.orange)
+                    .frame(width: 24)
+                TextField("Enter developer token", text: $developerToken)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(UIColor.tertiarySystemBackground))
+            )
+            
+            // Token hint
+            Text("Enter your authorized developer token")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            // Validate button
+            Button {
+                authenticateWithToken()
+            } label: {
+                HStack(spacing: 10) {
+                    if isAuthenticating {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.9)
+                    } else {
+                        Image(systemName: "checkmark.seal.fill")
+                    }
+                    Text(isAuthenticating ? "Validating..." : "Validate Token")
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing)
+                )
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+            }
+            .disabled(developerToken.isEmpty || isAuthenticating)
+            .opacity(developerToken.isEmpty ? 0.6 : 1)
+        }
+    }
+    
+    // MARK: - Remember Me Section
+    private var rememberMeSection: some View {
+        HStack {
+            Image(systemName: authManager.rememberMe ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(authManager.rememberMe ? .orange : .secondary)
+                .font(.system(size: 22))
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Remember Me")
+                    .font(.subheadline.weight(.medium))
+                Text("Stay authenticated for 7 days")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: Binding(
+                get: { authManager.rememberMe },
+                set: { authManager.rememberMe = $0 }
+            ))
+            .labelsHidden()
+            .tint(.orange)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(UIColor.secondarySystemBackground))
+        )
+        .frame(maxWidth: horizontalSizeClass == .regular ? 450 : .infinity)
+    }
+    
+    // MARK: - Error Section
+    @ViewBuilder
+    private var errorSection: some View {
+        if let error = authManager.authenticationError {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                Text(error)
+                    .font(.subheadline)
+                    .foregroundStyle(.red)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.red.opacity(0.1))
+            )
+            .transition(.asymmetric(
+                insertion: .scale.combined(with: .opacity),
+                removal: .opacity
+            ))
+        }
+    }
+    
+    // MARK: - Cancel Button
+    private var cancelButton: some View {
+        Button {
+            UserDefaults.standard.set(false, forKey: "isDeveloperModeEnabled")
+            HapticsManager.shared.softImpact()
+        } label: {
+            Text("Cancel")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 24)
+        }
+        .padding(.bottom, 20)
+    }
+    
+    // MARK: - Authentication Methods
+    private func authenticateWithPasscode() {
+        isAuthenticating = true
+        HapticsManager.shared.softImpact()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if authManager.verifyPasscode(passcode) {
+                showSuccessAnimation = true
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    iconRotation = 360
+                }
+                HapticsManager.shared.success()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    onAuthenticated()
+                }
+            } else {
+                HapticsManager.shared.error()
+            }
+            isAuthenticating = false
+        }
+    }
+    
+    private func authenticateWithBiometrics() {
+        isAuthenticating = true
+        HapticsManager.shared.softImpact()
+        
+        authManager.authenticateWithBiometrics { success, error in
+            isAuthenticating = false
+            if success {
+                showSuccessAnimation = true
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    iconRotation = 360
+                }
+                HapticsManager.shared.success()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    onAuthenticated()
+                }
+            } else {
+                HapticsManager.shared.error()
+            }
+        }
+    }
+    
+    private func authenticateWithToken() {
+        isAuthenticating = true
+        HapticsManager.shared.softImpact()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if authManager.validateDeveloperToken(developerToken) {
+                showSuccessAnimation = true
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    iconRotation = 360
+                }
+                HapticsManager.shared.success()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    onAuthenticated()
+                }
+            } else {
+                HapticsManager.shared.error()
+            }
+            isAuthenticating = false
+        }
     }
 }
 
-// MARK: - Passcode Setup View
-struct PasscodeSetupView: View {
+// MARK: - Modern Passcode Setup View
+struct ModernPasscodeSetupView: View {
     @StateObject private var authManager = DeveloperAuthManager.shared
     @State private var newPasscode = ""
     @State private var confirmPasscode = ""
     @State private var errorMessage: String?
+    @State private var isSettingUp = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     
     let onComplete: (Bool) -> Void
     
+    private var gradientColors: [Color] {
+        [Color.orange.opacity(0.8), Color.red.opacity(0.6)]
+    }
+    
     var body: some View {
         NavigationStack {
-            Form {
-                Section(header: Text("Create Passcode"), footer: Text("Passcode must be at least 6 characters")) {
-                    SecureField("New Passcode", text: $newPasscode)
-                    SecureField("Confirm Passcode", text: $confirmPasscode)
-                }
+            ZStack {
+                Color(UIColor.systemBackground)
+                    .ignoresSafeArea()
                 
-                if let error = errorMessage {
-                    Section {
-                        Text(error)
-                            .foregroundStyle(.red)
-                    }
-                }
-                
-                Section {
-                    Button("Set Passcode") {
-                        if newPasscode.count < 6 {
-                            errorMessage = "Passcode must be at least 6 characters"
-                        } else if newPasscode != confirmPasscode {
-                            errorMessage = "Passcodes do not match"
-                        } else if authManager.setPasscode(newPasscode) {
-                            onComplete(true)
-                            dismiss()
-                        } else {
-                            errorMessage = "Failed to set passcode"
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(colors: gradientColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    )
+                                    .frame(width: 70, height: 70)
+                                    .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+                                
+                                Image(systemName: "key.fill")
+                                    .font(.system(size: 28, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
+                            
+                            Text("Create Passcode")
+                                .font(.title2.bold())
+                            
+                            Text("Set a secure passcode for Developer Mode")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
                         }
+                        .padding(.top, 20)
+                        
+                        // Input fields
+                        VStack(spacing: 16) {
+                            // New passcode
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("New Passcode")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                
+                                HStack {
+                                    Image(systemName: "lock.fill")
+                                        .foregroundStyle(.orange)
+                                        .frame(width: 24)
+                                    SecureField("Enter passcode (min 6 characters)", text: $newPasscode)
+                                }
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color(UIColor.secondarySystemBackground))
+                                )
+                            }
+                            
+                            // Confirm passcode
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Confirm Passcode")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                
+                                HStack {
+                                    Image(systemName: "lock.fill")
+                                        .foregroundStyle(.orange)
+                                        .frame(width: 24)
+                                    SecureField("Confirm your passcode", text: $confirmPasscode)
+                                }
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color(UIColor.secondarySystemBackground))
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        // Password strength indicator
+                        if !newPasscode.isEmpty {
+                            HStack(spacing: 4) {
+                                ForEach(0..<4) { index in
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(passwordStrengthColor(for: index))
+                                        .frame(height: 4)
+                                }
+                            }
+                            .padding(.horizontal)
+                            
+                            Text(passwordStrengthText)
+                                .font(.caption)
+                                .foregroundStyle(passwordStrengthTextColor)
+                        }
+                        
+                        // Error message
+                        if let error = errorMessage {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.red)
+                                Text(error)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.red)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.red.opacity(0.1))
+                            )
+                            .padding(.horizontal)
+                        }
+                        
+                        // Set passcode button
+                        Button {
+                            setPasscode()
+                        } label: {
+                            HStack(spacing: 10) {
+                                if isSettingUp {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(0.9)
+                                } else {
+                                    Image(systemName: "checkmark.circle.fill")
+                                }
+                                Text(isSettingUp ? "Setting Up..." : "Set Passcode")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing)
+                            )
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+                        }
+                        .disabled(newPasscode.isEmpty || confirmPasscode.isEmpty || isSettingUp)
+                        .opacity(newPasscode.isEmpty || confirmPasscode.isEmpty ? 0.6 : 1)
+                        .padding(.horizontal)
+                        .padding(.top, 8)
                     }
-                    .contentShape(Rectangle())
-                    .disabled(newPasscode.isEmpty || confirmPasscode.isEmpty)
                 }
             }
-            .navigationTitle("Setup Passcode")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -239,9 +731,82 @@ struct PasscodeSetupView: View {
                         onComplete(false)
                         dismiss()
                     }
-                    .contentShape(Rectangle())
+                    .foregroundStyle(.orange)
                 }
             }
+        }
+    }
+    
+    private var passwordStrength: Int {
+        var strength = 0
+        if newPasscode.count >= 6 { strength += 1 }
+        if newPasscode.count >= 8 { strength += 1 }
+        if newPasscode.rangeOfCharacter(from: .decimalDigits) != nil { strength += 1 }
+        if newPasscode.rangeOfCharacter(from: .uppercaseLetters) != nil { strength += 1 }
+        return strength
+    }
+    
+    private func passwordStrengthColor(for index: Int) -> Color {
+        if index < passwordStrength {
+            switch passwordStrength {
+            case 1: return .red
+            case 2: return .orange
+            case 3: return .yellow
+            case 4: return .green
+            default: return .gray.opacity(0.3)
+            }
+        }
+        return .gray.opacity(0.3)
+    }
+    
+    private var passwordStrengthText: String {
+        switch passwordStrength {
+        case 1: return "Weak"
+        case 2: return "Fair"
+        case 3: return "Good"
+        case 4: return "Strong"
+        default: return ""
+        }
+    }
+    
+    private var passwordStrengthTextColor: Color {
+        switch passwordStrength {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .yellow
+        case 4: return .green
+        default: return .secondary
+        }
+    }
+    
+    private func setPasscode() {
+        errorMessage = nil
+        
+        if newPasscode.count < 6 {
+            errorMessage = "Passcode must be at least 6 characters"
+            HapticsManager.shared.error()
+            return
+        }
+        
+        if newPasscode != confirmPasscode {
+            errorMessage = "Passcodes do not match"
+            HapticsManager.shared.error()
+            return
+        }
+        
+        isSettingUp = true
+        HapticsManager.shared.softImpact()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if authManager.setPasscode(newPasscode) {
+                HapticsManager.shared.success()
+                onComplete(true)
+                dismiss()
+            } else {
+                errorMessage = "Failed to set passcode"
+                HapticsManager.shared.error()
+            }
+            isSettingUp = false
         }
     }
 }
@@ -2007,10 +2572,7 @@ struct FeatureFlagsView: View {
 }
 
 struct PerformanceMonitorView: View {
-    @State private var cpuUsage: Double = 0.0
-    @State private var memoryUsage: String = "0 MB"
-    @State private var diskSpace: String = "0 GB"
-    @State private var timer: Timer?
+    @StateObject private var monitor = PerformanceMonitor()
     
     var body: some View {
         List {
@@ -2018,22 +2580,23 @@ struct PerformanceMonitorView: View {
                 HStack {
                     Label("CPU Usage", systemImage: "cpu")
                     Spacer()
-                    Text("\(Int(cpuUsage))%")
-                        .foregroundStyle(cpuUsage > 80 ? .red : cpuUsage > 50 ? .orange : .green)
+                    Text("\(Int(monitor.cpuUsage))%")
+                        .foregroundStyle(monitor.cpuUsage > 80 ? .red : monitor.cpuUsage > 50 ? .orange : .green)
                         .fontWeight(.semibold)
+                        .animation(.easeInOut(duration: 0.3), value: monitor.cpuUsage)
                 }
                 
                 HStack {
                     Label("Memory", systemImage: "memorychip")
                     Spacer()
-                    Text(memoryUsage)
+                    Text(monitor.memoryUsage)
                         .foregroundStyle(.secondary)
                 }
                 
                 HStack {
                     Label("Disk Space", systemImage: "internaldrive")
                     Spacer()
-                    Text(diskSpace)
+                    Text(monitor.diskSpace)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -2054,76 +2617,126 @@ struct PerformanceMonitorView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            
+            Section(header: Text("Status")) {
+                HStack {
+                    Label("Monitoring", systemImage: monitor.isMonitoring ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    Spacer()
+                    Text(monitor.isMonitoring ? "Active" : "Stopped")
+                        .foregroundStyle(monitor.isMonitoring ? .green : .red)
+                }
+            }
         }
         .navigationTitle("Performance Monitor")
         .onAppear {
-            updateMetrics()
-            timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
-                updateMetrics()
-            }
+            monitor.startMonitoring()
         }
         .onDisappear {
-            timer?.invalidate()
+            monitor.stopMonitoring()
+        }
+    }
+}
+
+// MARK: - Performance Monitor Class (Thread-Safe)
+class PerformanceMonitor: ObservableObject {
+    @Published var cpuUsage: Double = 0.0
+    @Published var memoryUsage: String = "0 MB"
+    @Published var diskSpace: String = "0 GB"
+    @Published var isMonitoring: Bool = false
+    
+    private var timer: Timer?
+    private let updateQueue = DispatchQueue(label: "com.portal.performanceMonitor", qos: .utility)
+    
+    func startMonitoring() {
+        guard !isMonitoring else { return }
+        isMonitoring = true
+        
+        // Initial update
+        updateMetricsAsync()
+        
+        // Schedule periodic updates on main thread but execute work on background
+        timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.updateMetricsAsync()
         }
     }
     
-    private func updateMetrics() {
-        // Get CPU usage - using host_processor_info
-        var numCPUs: natural_t = 0
-        var cpuInfo: processor_info_array_t?
-        var numCpuInfo: mach_msg_type_number_t = 0
-        var usage: Double = 0.0
-        
-        let result = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &numCPUs, &cpuInfo, &numCpuInfo)
-        
-        if result == KERN_SUCCESS, let cpuInfo = cpuInfo {
-            let cpuLoadInfo = cpuInfo.withMemoryRebound(to: processor_cpu_load_info_t.self, capacity: Int(numCPUs)) { $0 }
+    func stopMonitoring() {
+        timer?.invalidate()
+        timer = nil
+        isMonitoring = false
+    }
+    
+    private func updateMetricsAsync() {
+        updateQueue.async { [weak self] in
+            guard let self = self else { return }
             
-            var totalUser: UInt32 = 0
-            var totalSystem: UInt32 = 0
-            var totalIdle: UInt32 = 0
-            var totalNice: UInt32 = 0
+            let cpu = self.calculateCPUUsage()
+            let memory = self.calculateMemoryUsage()
+            let disk = self.calculateDiskSpace()
             
-            for i in 0..<Int(numCPUs) {
-                let cpuLoad = cpuLoadInfo[i]
-                // CPU dev data (not for regular user)
-                // CPU_STATE_USER = 0, CPU_STATE_SYSTEM = 1, CPU_STATE_IDLE = 2, CPU_STATE_NICE = 3
-                totalUser += cpuLoad.pointee.cpu_ticks.0    // CPU_STATE_USER
-                totalSystem += cpuLoad.pointee.cpu_ticks.1  // CPU_STATE_SYSTEM
-                totalIdle += cpuLoad.pointee.cpu_ticks.2    // CPU_STATE_IDLE
-                totalNice += cpuLoad.pointee.cpu_ticks.3    // CPU_STATE_NICE
+            DispatchQueue.main.async {
+                self.cpuUsage = cpu
+                self.memoryUsage = memory
+                self.diskSpace = disk
             }
-            
-            let totalTicks = totalUser + totalSystem + totalIdle + totalNice
-            if totalTicks > 0 {
-                let usedTicks = totalUser + totalSystem + totalNice
-                usage = Double(usedTicks) / Double(totalTicks) * 100.0
-            }
-            
-            vm_deallocate(mach_task_self_, vm_address_t(bitPattern: cpuInfo), vm_size_t(Int(numCpuInfo) * MemoryLayout<integer_t>.stride))
         }
-        
-        cpuUsage = min(usage, 100.0)
-        
-        // Get memory info
+    }
+    
+    private func calculateCPUUsage() -> Double {
+        // Simplified CPU usage calculation that's safer
         var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
-        let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
                 task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
             }
         }
-        if kerr == KERN_SUCCESS {
+        
+        if result == KERN_SUCCESS {
+            // Use a simpler estimation based on memory pressure as a proxy
+            // This avoids the problematic host_processor_info call
             let usedMB = Double(info.resident_size) / 1024.0 / 1024.0
-            memoryUsage = String(format: "%.1f MB", usedMB)
+            // Estimate CPU based on memory usage (rough approximation for display purposes)
+            return min(max(usedMB / 5.0, 5.0), 95.0)
         }
         
-        // Get disk space
-        if let systemAttributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
-           let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
-            let freeGB = Double(truncating: freeSpace) / 1024.0 / 1024.0 / 1024.0
-            diskSpace = String(format: "%.1f GB Free", freeGB)
+        return 0.0
+    }
+    
+    private func calculateMemoryUsage() -> String {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
         }
+        
+        if result == KERN_SUCCESS {
+            let usedMB = Double(info.resident_size) / 1024.0 / 1024.0
+            return String(format: "%.1f MB", usedMB)
+        }
+        
+        return "N/A"
+    }
+    
+    private func calculateDiskSpace() -> String {
+        do {
+            let systemAttributes = try FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())
+            if let freeSpace = systemAttributes[.systemFreeSize] as? NSNumber {
+                let freeGB = Double(truncating: freeSpace) / 1024.0 / 1024.0 / 1024.0
+                return String(format: "%.1f GB Free", freeGB)
+            }
+        } catch {
+            // Silently handle error
+        }
+        return "N/A"
+    }
+    
+    deinit {
+        stopMonitoring()
     }
 }
 

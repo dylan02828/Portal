@@ -10,11 +10,22 @@ final class DeveloperAuthManager: ObservableObject {
     @Published private(set) var isAuthenticated = false
     @Published private(set) var authenticationError: String?
     @Published private(set) var lastAuthTime: Date?
+    @Published var rememberMe: Bool {
+        didSet {
+            UserDefaults.standard.set(rememberMe, forKey: rememberMeKey)
+            if !rememberMe {
+                clearRememberedSession()
+            }
+        }
+    }
     
     private let keychainService = "com.feather.developer"
     private let keychainAccount = "developerPasscode"
     private let tokenKey = "developerToken"
+    private let rememberMeKey = "dev.rememberMe"
+    private let rememberedSessionKey = "dev.rememberedSession"
     private let sessionTimeout: TimeInterval = 300 // 5 minutes
+    private let rememberedSessionTimeout: TimeInterval = 604800 // 7 days
     
     // Valid developer tokens (in production, these would be fetched from a secure server)
     private let validDeveloperTokens: Set<String> = [
@@ -24,12 +35,61 @@ final class DeveloperAuthManager: ObservableObject {
     ]
     
     private init() {
+        self.rememberMe = UserDefaults.standard.bool(forKey: rememberMeKey)
         checkSessionValidity()
+        attemptAutoAuthentication()
+    }
+    
+    // MARK: - Auto Authentication (Remember Me)
+    
+    private func attemptAutoAuthentication() {
+        guard rememberMe else { return }
+        
+        if let sessionData = UserDefaults.standard.data(forKey: rememberedSessionKey),
+           let session = try? JSONDecoder().decode(RememberedSession.self, from: sessionData) {
+            
+            // Check if session is still valid
+            if Date().timeIntervalSince(session.timestamp) < rememberedSessionTimeout {
+                isAuthenticated = true
+                lastAuthTime = Date()
+                AppLogManager.shared.info("Auto-authenticated via Remember Me", category: "Security")
+            } else {
+                clearRememberedSession()
+                AppLogManager.shared.info("Remembered session expired", category: "Security")
+            }
+        }
+    }
+    
+    func saveRememberedSession() {
+        guard rememberMe else { return }
+        
+        let session = RememberedSession(timestamp: Date())
+        if let data = try? JSONEncoder().encode(session) {
+            UserDefaults.standard.set(data, forKey: rememberedSessionKey)
+            AppLogManager.shared.info("Session saved for Remember Me", category: "Security")
+        }
+    }
+    
+    private func clearRememberedSession() {
+        UserDefaults.standard.removeObject(forKey: rememberedSessionKey)
+    }
+    
+    private struct RememberedSession: Codable {
+        let timestamp: Date
     }
     
     // MARK: - Session Management
     
     func checkSessionValidity() {
+        // If Remember Me is enabled and we have a valid remembered session, stay authenticated
+        if rememberMe {
+            if let sessionData = UserDefaults.standard.data(forKey: rememberedSessionKey),
+               let session = try? JSONDecoder().decode(RememberedSession.self, from: sessionData),
+               Date().timeIntervalSince(session.timestamp) < rememberedSessionTimeout {
+                return // Session is still valid
+            }
+        }
+        
         guard let lastAuth = lastAuthTime else {
             isAuthenticated = false
             return
@@ -41,6 +101,15 @@ final class DeveloperAuthManager: ObservableObject {
     }
     
     func lockDeveloperMode() {
+        // Don't lock if Remember Me is enabled
+        if rememberMe {
+            if let sessionData = UserDefaults.standard.data(forKey: rememberedSessionKey),
+               let session = try? JSONDecoder().decode(RememberedSession.self, from: sessionData),
+               Date().timeIntervalSince(session.timestamp) < rememberedSessionTimeout {
+                return // Keep authenticated
+            }
+        }
+        
         isAuthenticated = false
         lastAuthTime = nil
         authenticationError = nil
@@ -85,6 +154,7 @@ final class DeveloperAuthManager: ObservableObject {
             isAuthenticated = true
             lastAuthTime = Date()
             authenticationError = nil
+            saveRememberedSession()
             AppLogManager.shared.success("Developer passcode verified", category: "Security")
         } else {
             authenticationError = "Invalid passcode"
@@ -146,6 +216,7 @@ final class DeveloperAuthManager: ObservableObject {
                     self?.isAuthenticated = true
                     self?.lastAuthTime = Date()
                     self?.authenticationError = nil
+                    self?.saveRememberedSession()
                     AppLogManager.shared.success("Biometric authentication successful", category: "Security")
                     completion(true, nil)
                 } else {
@@ -169,6 +240,7 @@ final class DeveloperAuthManager: ObservableObject {
             lastAuthTime = Date()
             authenticationError = nil
             saveDeveloperToken(normalizedToken)
+            saveRememberedSession()
             AppLogManager.shared.success("Developer token validated", category: "Security")
         } else {
             authenticationError = "Invalid developer token"

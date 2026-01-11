@@ -132,7 +132,7 @@ struct CoreSignHeaderView: View {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 7))
                 .foregroundStyle(Color.accentColor)
-            Text("1.0.1")
+            Text("1.0.2")
                 .font(.system(size: 9))
                 .fontWeight(.semibold)
             Text("Release")

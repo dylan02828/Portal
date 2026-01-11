@@ -19,9 +19,11 @@ struct SettingsView: View {
     @State private var developerTapCount = 0
     @State private var lastTapTime: Date?
     @State private var showDeveloperConfirmation = false
+    @State private var navigateToCheckForUpdates = false
     @AppStorage("isDeveloperModeEnabled") private var isDeveloperModeEnabled = false
     @AppStorage("Feather.certificateExperience") private var certificateExperience: String = CertificateExperience.developer.rawValue
     @AppStorage("forceShowGuides") private var forceShowGuides = false
+    @Environment(\.navigateToUpdates) private var navigateToUpdates
     
     // MARK: Body
     var body: some View {
@@ -91,7 +93,7 @@ struct SettingsView: View {
                         NavigationLink(destination: ManageStorageView()) {
                             ConditionalLabel(title: .localized("Manage Storage"), systemImage: "internaldrive")
                         }
-                        NavigationLink(destination: CheckForUpdatesView()) {
+                        NavigationLink(destination: CheckForUpdatesView(), isActive: $navigateToCheckForUpdates) {
                             ConditionalLabel(title: .localized("Check For Updates"), systemImage: "arrow.down.circle")
                         }
                     } footer: {
@@ -120,6 +122,15 @@ struct SettingsView: View {
             }
         } message: {
             Text("Developer mode provides advanced tools and diagnostics. This is intended for developers and advanced users only. Are you sure you want to enable it?")
+        }
+        .onChange(of: navigateToUpdates.wrappedValue) { shouldNavigate in
+            if shouldNavigate {
+                navigateToCheckForUpdates = true
+                // Reset the environment value
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    navigateToUpdates.wrappedValue = false
+                }
+            }
         }
     }
     
