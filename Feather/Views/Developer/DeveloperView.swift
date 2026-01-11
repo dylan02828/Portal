@@ -3195,6 +3195,30 @@ struct UpdatesReleasesView: View {
                         .foregroundStyle(updateBannerDismissed ? .orange : .green)
                 }
             }
+            
+            // Developer Testing
+            Section(header: Text("Developer Testing")) {
+                Button {
+                    forceShowFakeUpdate()
+                } label: {
+                    HStack {
+                        Image(systemName: "wand.and.stars")
+                            .foregroundStyle(.purple)
+                        Text("Force Show Update")
+                        Spacer()
+                        Text("Test")
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.purple))
+                    }
+                }
+                
+                Text("Simulates an available update to test the Check for Updates view and update banner.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .navigationTitle("Updates & Releases")
         .onAppear {
@@ -3249,6 +3273,60 @@ struct UpdatesReleasesView: View {
             }
         }.resume()
     }
+    
+    private func forceShowFakeUpdate() {
+        // Create a fake release with a higher version number
+        let fakeAsset = GitHubAsset(
+            id: 999999,
+            name: "Portal-99.0.0.ipa",
+            size: 50_000_000,
+            downloadCount: 1000,
+            browserDownloadUrl: "https://github.com/aoyn1xw/Portal/releases/download/v99.0.0/Portal-99.0.0.ipa"
+        )
+        
+        let fakeRelease = GitHubRelease(
+            id: 999999,
+            tagName: "v99.0.0",
+            name: "Portal v99.0.0 - Test Release",
+            body: """
+            ## 🧪 Test Release
+            
+            This is a **fake update** generated for testing purposes.
+            
+            ### What's New
+            - ✨ Amazing new features
+            - 🐛 Bug fixes
+            - 🚀 Performance improvements
+            - 🎨 UI enhancements
+            
+            ### Notes
+            This release is simulated by the Developer Mode "Force Show Update" feature.
+            """,
+            prerelease: false,
+            draft: false,
+            publishedAt: Date(),
+            htmlUrl: "https://github.com/aoyn1xw/Portal/releases/tag/v99.0.0",
+            assets: [fakeAsset]
+        )
+        
+        // Store the fake release info for the Check for Updates view
+        UserDefaults.standard.set(true, forKey: "dev.forceShowUpdate")
+        UserDefaults.standard.set("99.0.0", forKey: "dev.fakeUpdateVersion")
+        
+        // Reset the dismissed state so the banner shows
+        updateBannerDismissed = false
+        
+        // Post notification to trigger update banner
+        NotificationCenter.default.post(name: .forceShowUpdateNotification, object: fakeRelease)
+        
+        HapticsManager.shared.success()
+        AppLogManager.shared.info("Force showing fake update v99.0.0", category: "Developer")
+    }
+}
+
+// MARK: - Force Show Update Notification
+extension Notification.Name {
+    static let forceShowUpdateNotification = Notification.Name("forceShowUpdateNotification")
 }
 
 // MARK: - GitHub Release Model

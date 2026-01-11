@@ -74,6 +74,17 @@ struct CheckForUpdatesView: View {
                 FullReleaseNotesView(release: release)
             }
         }
+        .sheet(isPresented: $updateManager.showUpdateFinished) {
+            if let ipaURL = updateManager.downloadedIPAURL {
+                UpdateFinishedView(
+                    ipaURL: ipaURL,
+                    fileName: updateManager.downloadedFileName,
+                    onDismiss: {
+                        updateManager.showUpdateFinished = false
+                    }
+                )
+            }
+        }
     }
     
     // MARK: - Hero Section
@@ -745,10 +756,14 @@ class UpdateManager: ObservableObject {
     @Published var errorMessage: String?
     @Published var hasChecked = false
     @Published var isUpdateAvailable = false
+    @Published var showUpdateFinished = false
+    @Published var downloadedIPAURL: URL?
+    @Published var downloadedFileName: String = ""
     
     private let repoOwner = "aoyn1xw"
     private let repoName = "Portal"
     private var downloadTask: URLSessionDownloadTask?
+    private var downloadSession: URLSession?
     
     var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2"
@@ -758,6 +773,12 @@ class UpdateManager: ObservableObject {
         isCheckingUpdates = true
         errorMessage = nil
         HapticsManager.shared.softImpact()
+        
+        // Check for forced fake update first
+        if UserDefaults.standard.bool(forKey: "dev.forceShowUpdate") {
+            checkForForcedUpdate()
+            return
+        }
         
         let urlString = "https://api.github.com/repos/\(repoOwner)/\(repoName)/releases"
         guard let url = URL(string: urlString) else {
@@ -816,6 +837,54 @@ class UpdateManager: ObservableObject {
         }.resume()
     }
     
+    private func checkForForcedUpdate() {
+        // Create fake release for testing
+        let fakeVersion = UserDefaults.standard.string(forKey: "dev.fakeUpdateVersion") ?? "99.0.0"
+        
+        let fakeAsset = GitHubAsset(
+            id: 999999,
+            name: "Portal-\(fakeVersion).ipa",
+            size: 50_000_000,
+            downloadCount: 1000,
+            browserDownloadUrl: "https://github.com/aoyn1xw/Portal/releases/download/v\(fakeVersion)/Portal-\(fakeVersion).ipa"
+        )
+        
+        let fakeRelease = GitHubRelease(
+            id: 999999,
+            tagName: "v\(fakeVersion)",
+            name: "Portal v\(fakeVersion) - Test Release",
+            body: """
+            ## 🧪 Test Release
+            
+            This is a **fake update** generated for testing purposes.
+            
+            ### What's New
+            - ✨ Amazing new features
+            - 🐛 Bug fixes
+            - 🚀 Performance improvements
+            - 🎨 UI enhancements
+            
+            ### Notes
+            This release is simulated by the Developer Mode "Force Show Update" feature.
+            """,
+            prerelease: false,
+            draft: false,
+            publishedAt: Date(),
+            htmlUrl: "https://github.com/aoyn1xw/Portal/releases/tag/v\(fakeVersion)",
+            assets: [fakeAsset]
+        )
+        
+        DispatchQueue.main.async {
+            self.isCheckingUpdates = false
+            self.hasChecked = true
+            self.latestRelease = fakeRelease
+            self.allReleases = [fakeRelease]
+            self.isUpdateAvailable = true
+            HapticsManager.shared.success()
+            AppLogManager.shared.info("Showing forced fake update v\(fakeVersion)", category: "Updates")
+        }
+    }
+    
     func downloadUpdate() {
         guard let release = latestRelease else { return }
         
@@ -823,25 +892,37 @@ class UpdateManager: ObservableObject {
         let ipaAsset = release.assets.first { $0.name.hasSuffix(".ipa") }
         
         if let asset = ipaAsset {
-            downloadAsset(asset)
+            downloadAsset(asset, fileName: asset.name)
         } else {
-            // Fallback to opening GitHub page
+            // Fallback to opening GitHub page if no IPA found
+            errorMessage = "No IPA file found in release assets"
             if let url = URL(string: release.htmlUrl) {
                 UIApplication.shared.open(url)
             }
+            HapticsManager.shared.error()
         }
-        
-        HapticsManager.shared.success()
     }
     
-    private func downloadAsset(_ asset: GitHubAsset) {
-        guard let url = URL(string: asset.browserDownloadUrl) else { return }
+    private func downloadAsset(_ asset: GitHubAsset, fileName: String) {
+        guard let url = URL(string: asset.browserDownloadUrl) else {
+            errorMessage = "Invalid download URL"
+            return
+        }
         
         isDownloading = true
         downloadProgress = 0.0
+        downloadedFileName = fileName
+        errorMessage = nil
         
-        let session = URLSession(configuration: .default, delegate: DownloadDelegate(manager: self), delegateQueue: nil)
-        downloadTask = session.downloadTask(with: url)
+        HapticsManager.shared.softImpact()
+        AppLogManager.shared.info("Starting download: \(fileName)", category: "Updates")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForResource = 300 // 5 minutes timeout
+        
+        let delegate = DownloadDelegate(manager: self)
+        downloadSession = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
+        downloadTask = downloadSession?.downloadTask(with: url)
         downloadTask?.resume()
     }
     
@@ -852,24 +933,38 @@ class UpdateManager: ObservableObject {
     }
     
     func downloadCompleted(at location: URL) {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
             self.isDownloading = false
             self.downloadProgress = 1.0
-            HapticsManager.shared.success()
             
-            // Move file to documents
+            // Create destination URL in documents directory
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let destinationURL = documentsPath.appendingPathComponent("Portal-Update.ipa")
+            let fileName = self.downloadedFileName.isEmpty ? "Portal-Update.ipa" : self.downloadedFileName
+            let destinationURL = documentsPath.appendingPathComponent(fileName)
             
             do {
+                // Remove existing file if present
                 if FileManager.default.fileExists(atPath: destinationURL.path) {
                     try FileManager.default.removeItem(at: destinationURL)
                 }
+                
+                // Move downloaded file to documents
                 try FileManager.default.moveItem(at: location, to: destinationURL)
                 
-                // Open share sheet or handle IPA
-                AppLogManager.shared.success("Update downloaded to: \(destinationURL.path)", category: "Updates")
+                self.downloadedIPAURL = destinationURL
+                self.showUpdateFinished = true
+                
+                HapticsManager.shared.success()
+                AppLogManager.shared.success("Update downloaded successfully: \(destinationURL.path)", category: "Updates")
+                
+                // Clear forced update flag
+                UserDefaults.standard.set(false, forKey: "dev.forceShowUpdate")
+                
             } catch {
+                self.errorMessage = "Failed to save update: \(error.localizedDescription)"
+                HapticsManager.shared.error()
                 AppLogManager.shared.error("Failed to save update: \(error.localizedDescription)", category: "Updates")
             }
         }
@@ -878,9 +973,20 @@ class UpdateManager: ObservableObject {
     func downloadFailed(with error: Error) {
         DispatchQueue.main.async {
             self.isDownloading = false
+            self.downloadProgress = 0.0
             self.errorMessage = "Download failed: \(error.localizedDescription)"
             HapticsManager.shared.error()
+            AppLogManager.shared.error("Download failed: \(error.localizedDescription)", category: "Updates")
         }
+    }
+    
+    func cancelDownload() {
+        downloadTask?.cancel()
+        downloadSession?.invalidateAndCancel()
+        isDownloading = false
+        downloadProgress = 0.0
+        HapticsManager.shared.softImpact()
+        AppLogManager.shared.info("Download cancelled", category: "Updates")
     }
     
     private func compareVersions(_ v1: String, _ v2: String) -> ComparisonResult {
@@ -926,6 +1032,314 @@ class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
             manager?.downloadFailed(with: error)
         }
     }
+}
+
+// MARK: - Update Finished View
+struct UpdateFinishedView: View {
+    let ipaURL: URL
+    let fileName: String
+    let onDismiss: () -> Void
+    
+    @State private var showShareSheet = false
+    @State private var isAddingToLibrary = false
+    @State private var addedToLibrary = false
+    @State private var errorMessage: String?
+    @State private var successAnimation = false
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Background
+                Color(UIColor.systemGroupedBackground)
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 28) {
+                        // Success Header
+                        successHeader
+                        
+                        // File Info Card
+                        fileInfoCard
+                        
+                        // Action Buttons
+                        actionButtons
+                        
+                        // Error message if any
+                        if let error = errorMessage {
+                            errorView(error)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 40)
+                }
+            }
+            .navigationTitle("Download Complete")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        onDismiss()
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(items: [ipaURL])
+            }
+            .onAppear {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2)) {
+                    successAnimation = true
+                }
+            }
+        }
+    }
+    
+    // MARK: - Success Header
+    private var successHeader: some View {
+        VStack(spacing: 20) {
+            // Animated checkmark
+            ZStack {
+                // Outer ring
+                Circle()
+                    .stroke(Color.green.opacity(0.2), lineWidth: 4)
+                    .frame(width: 100, height: 100)
+                
+                // Animated fill
+                Circle()
+                    .trim(from: 0, to: successAnimation ? 1 : 0)
+                    .stroke(Color.green, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 100, height: 100)
+                    .rotationEffect(.degrees(-90))
+                
+                // Inner circle
+                Circle()
+                    .fill(Color.green.opacity(0.15))
+                    .frame(width: 80, height: 80)
+                
+                // Checkmark
+                Image(systemName: "checkmark")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundStyle(.green)
+                    .scaleEffect(successAnimation ? 1 : 0)
+            }
+            
+            VStack(spacing: 8) {
+                Text("Update Downloaded!")
+                    .font(.title2.bold())
+                
+                Text("The update has been saved to your device")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.top, 20)
+    }
+    
+    // MARK: - File Info Card
+    private var fileInfoCard: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 16) {
+                // IPA Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.blue, Color.purple],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+                    
+                    Image(systemName: "app.badge.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.white)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fileName)
+                        .font(.headline)
+                        .lineLimit(1)
+                    
+                    if let fileSize = getFileSize() {
+                        Text(fileSize)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Text("Ready to install")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+                
+                Spacer()
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+    }
+    
+    // MARK: - Action Buttons
+    private var actionButtons: some View {
+        VStack(spacing: 12) {
+            // Export IPA Button
+            Button {
+                showShareSheet = true
+                HapticsManager.shared.softImpact()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("Export IPA")
+                        .font(.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.blue)
+                )
+                .foregroundStyle(.white)
+            }
+            
+            // Add to Library Button
+            Button {
+                addToLibrary()
+            } label: {
+                HStack(spacing: 12) {
+                    if isAddingToLibrary {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.9)
+                    } else if addedToLibrary {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                    } else {
+                        Image(systemName: "plus.app")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    Text(addedToLibrary ? "Added to Library" : "Add to Library")
+                        .font(.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(addedToLibrary ? Color.green : Color.purple)
+                )
+                .foregroundStyle(.white)
+            }
+            .disabled(isAddingToLibrary || addedToLibrary)
+            
+            // Info text
+            Text("Export to share the IPA file, or add directly to your Library for signing.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.top, 8)
+        }
+    }
+    
+    // MARK: - Error View
+    private func errorView(_ error: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(error)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.orange.opacity(0.1))
+        )
+    }
+    
+    // MARK: - Helper Methods
+    private func getFileSize() -> String? {
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: ipaURL.path)
+            if let size = attributes[.size] as? Int64 {
+                let formatter = ByteCountFormatter()
+                formatter.countStyle = .file
+                return formatter.string(fromByteCount: size)
+            }
+        } catch {
+            // Ignore error
+        }
+        return nil
+    }
+    
+    private func addToLibrary() {
+        isAddingToLibrary = true
+        errorMessage = nil
+        HapticsManager.shared.softImpact()
+        
+        // Move file to unsigned directory for library
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let unsignedDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("unsigned", isDirectory: true)
+                
+                // Create unsigned directory if needed
+                if !FileManager.default.fileExists(atPath: unsignedDir.path) {
+                    try FileManager.default.createDirectory(at: unsignedDir, withIntermediateDirectories: true)
+                }
+                
+                let destinationURL = unsignedDir.appendingPathComponent(fileName)
+                
+                // Remove existing file if present
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try FileManager.default.removeItem(at: destinationURL)
+                }
+                
+                // Copy file to library
+                try FileManager.default.copyItem(at: ipaURL, to: destinationURL)
+                
+                DispatchQueue.main.async {
+                    isAddingToLibrary = false
+                    addedToLibrary = true
+                    HapticsManager.shared.success()
+                    AppLogManager.shared.success("Added update to library: \(fileName)", category: "Updates")
+                    
+                    // Handle the IPA file using FR helper if available
+                    FR.handlePackageFile(destinationURL) { error in
+                        if let error = error {
+                            AppLogManager.shared.error("Failed to process IPA: \(error.localizedDescription)", category: "Updates")
+                        }
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    isAddingToLibrary = false
+                    errorMessage = "Failed to add to library: \(error.localizedDescription)"
+                    HapticsManager.shared.error()
+                    AppLogManager.shared.error("Failed to add to library: \(error.localizedDescription)", category: "Updates")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Share Sheet
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Preview
