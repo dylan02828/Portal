@@ -1,5 +1,5 @@
-// Created by dylan on 12/30/25
-// Adding auth next (todo)
+// Developer Mode - Production Grade Internal Control Panel
+// Secure authentication required for access
 
 import SwiftUI
 import NimbleViews
@@ -7,175 +7,465 @@ import AltSourceKit
 import Darwin
 import ZIPFoundation
 import UserNotifications
+import LocalAuthentication
 
-// MARK: - Developer View
+// MARK: - Developer Mode Entry Point
 struct DeveloperView: View {
-    @AppStorage("debugModeEnabled") private var debugModeEnabled = false
-    @AppStorage("showLayoutBoundaries") private var showLayoutBoundaries = false
-    @AppStorage("slowAnimations") private var slowAnimations = false
+    @StateObject private var authManager = DeveloperAuthManager.shared
+    @State private var showAuthSheet = true
+    @Environment(\.scenePhase) private var scenePhase
+    
+    var body: some View {
+        Group {
+            if authManager.isAuthenticated {
+                DeveloperControlPanelView()
+            } else {
+                DeveloperAuthView(onAuthenticated: {
+                    showAuthSheet = false
+                })
+            }
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .background {
+                authManager.lockDeveloperMode()
+            }
+        }
+        .onAppear {
+            authManager.checkSessionValidity()
+        }
+    }
+}
+
+// MARK: - Developer Authentication View
+struct DeveloperAuthView: View {
+    @StateObject private var authManager = DeveloperAuthManager.shared
+    @State private var passcode = ""
+    @State private var developerToken = ""
+    @State private var showSetupPasscode = false
+    @State private var newPasscode = ""
+    @State private var confirmPasscode = ""
+    @State private var authMethod: AuthMethod = .passcode
+    
+    let onAuthenticated: () -> Void
+    
+    enum AuthMethod: String, CaseIterable {
+        case passcode = "Passcode"
+        case biometric = "Biometric"
+        case token = "Developer Token"
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.orange.opacity(0.15))
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "lock.shield.fill")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.orange)
+                    }
+                    
+                    Text("Developer Mode")
+                        .font(.title2.bold())
+                    
+                    Text("Authentication required")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 40)
+                
+                // Auth method picker
+                Picker("Authentication Method", selection: $authMethod) {
+                    ForEach(AuthMethod.allCases, id: \.self) { method in
+                        if method == .biometric && !authManager.canUseBiometrics {
+                            EmptyView()
+                        } else {
+                            Text(method.rawValue).tag(method)
+                        }
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                
+                // Auth input based on method
+                VStack(spacing: 16) {
+                    switch authMethod {
+                    case .passcode:
+                        if authManager.hasPasscodeSet {
+                            SecureField("Enter Passcode", text: $passcode)
+                                .textFieldStyle(.roundedBorder)
+                                .padding(.horizontal)
+                            
+                            Button("Authenticate") {
+                                if authManager.verifyPasscode(passcode) {
+                                    onAuthenticated()
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(passcode.isEmpty)
+                        } else {
+                            Text("No passcode set")
+                                .foregroundStyle(.secondary)
+                            
+                            Button("Set Up Passcode") {
+                                showSetupPasscode = true
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        
+                    case .biometric:
+                        Button {
+                            authManager.authenticateWithBiometrics { success, error in
+                                if success {
+                                    onAuthenticated()
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: authManager.biometricType == .faceID ? "faceid" : "touchid")
+                                Text("Authenticate with \(authManager.biometricType == .faceID ? "Face ID" : "Touch ID")")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                    case .token:
+                        TextField("Developer Token", text: $developerToken)
+                            .textFieldStyle(.roundedBorder)
+                            .autocapitalization(.allCharacters)
+                            .padding(.horizontal)
+                        
+                        Button("Validate Token") {
+                            if authManager.validateDeveloperToken(developerToken) {
+                                onAuthenticated()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(developerToken.isEmpty)
+                    }
+                }
+                
+                // Error message
+                if let error = authManager.authenticationError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal)
+                }
+                
+                Spacer()
+                
+                // Exit button
+                Button("Cancel") {
+                    UserDefaults.standard.set(false, forKey: "isDeveloperModeEnabled")
+                }
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 20)
+            }
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showSetupPasscode) {
+                PasscodeSetupView(onComplete: { success in
+                    showSetupPasscode = false
+                })
+            }
+        }
+    }
+}
+
+// MARK: - Passcode Setup View
+struct PasscodeSetupView: View {
+    @StateObject private var authManager = DeveloperAuthManager.shared
+    @State private var newPasscode = ""
+    @State private var confirmPasscode = ""
+    @State private var errorMessage: String?
+    @Environment(\.dismiss) private var dismiss
+    
+    let onComplete: (Bool) -> Void
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Create Passcode"), footer: Text("Passcode must be at least 6 characters")) {
+                    SecureField("New Passcode", text: $newPasscode)
+                    SecureField("Confirm Passcode", text: $confirmPasscode)
+                }
+                
+                if let error = errorMessage {
+                    Section {
+                        Text(error)
+                            .foregroundStyle(.red)
+                    }
+                }
+                
+                Section {
+                    Button("Set Passcode") {
+                        if newPasscode.count < 6 {
+                            errorMessage = "Passcode must be at least 6 characters"
+                        } else if newPasscode != confirmPasscode {
+                            errorMessage = "Passcodes do not match"
+                        } else if authManager.setPasscode(newPasscode) {
+                            onComplete(true)
+                            dismiss()
+                        } else {
+                            errorMessage = "Failed to set passcode"
+                        }
+                    }
+                    .disabled(newPasscode.isEmpty || confirmPasscode.isEmpty)
+                }
+            }
+            .navigationTitle("Setup Passcode")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onComplete(false)
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Developer Control Panel (Main View)
+struct DeveloperControlPanelView: View {
+    @StateObject private var authManager = DeveloperAuthManager.shared
     @State private var showResetConfirmation = false
     @Environment(\.scenePhase) private var scenePhase
     
     var body: some View {
-        NBNavigationView("Developer") {
+        NBNavigationView("Developer Mode") {
             List {
-                Section(header: Text("Diagnostics")) {
-                    NavigationLink(destination: AppLogsView()) {
-                        Label("App Logs", systemImage: "terminal")
-                    }
-                    NavigationLink(destination: NetworkInspectorView()) {
-                        Label("Network Inspector", systemImage: "network")
-                    }
-                    NavigationLink(destination: PerformanceMonitorView()) {
-                        Label("Performance Monitor", systemImage: "speedometer")
-                    }
-                    Toggle("Debug Mode", isOn: $debugModeEnabled)
-                        .onChange(of: debugModeEnabled) { newValue in
-                            // Enable verbose logging
-                        }
-                    Toggle("Verbose Logging", isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "verboseLogging") },
-                        set: { UserDefaults.standard.set($0, forKey: "verboseLogging") }
-                    ))
-                }
-                
-                Section(header: Text("Analysis")) {
-                    NavigationLink(destination: IPAInspectorView()) {
-                        Label("IPA Inspector", systemImage: "doc.zipper")
-                    }
-                    NavigationLink(destination: IPAIntegrityCheckerView()) {
-                        Label("Integrity Checker", systemImage: "checkmark.shield")
-                    }
-                    NavigationLink(destination: FileSystemBrowserView()) {
-                        Label("File System", systemImage: "folder")
-                    }
-                }
-                
-                Section(header: Text("Data")) {
-                    NavigationLink(destination: SourceDataView()) {
-                        Label("Source Data", systemImage: "server.rack")
-                    }
-                    NavigationLink(destination: AppStateView()) {
-                        Label("App State & Storage", systemImage: "memorychip")
-                    }
-                    NavigationLink(destination: UserDefaultsEditorView()) {
-                        Label("UserDefaults Editor", systemImage: "list.bullet.rectangle")
-                    }
-                    NavigationLink(destination: CoreDataInspectorView()) {
-                        Label("CoreData Inspector", systemImage: "cylinder.split.1x2")
-                    }
-                }
-                
-                Section(header: Text("UI Debugging")) {
-                    Toggle("Show Layout Boundaries", isOn: $showLayoutBoundaries)
-                        .onChange(of: showLayoutBoundaries) { newValue in
-                            UserDefaults.standard.set(newValue, forKey: "_UIConstraintBasedLayoutPlayground")
-                        }
-                    
-                    Toggle("Slow Animations", isOn: $slowAnimations)
-                        .onChange(of: slowAnimations) { newValue in
-                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-                                windowScene.windows.first?.layer.speed = newValue ? 0.1 : 1.0
-                            }
-                        }
-                }
-                
+                // Updates & Releases Section
                 Section {
-                    NavigationLink(destination: FeatureFlagsView()) {
-                        Label("Feature Flags", systemImage: "flag")
+                    NavigationLink(destination: UpdatesReleasesView()) {
+                        DeveloperMenuRow(icon: "arrow.down.circle.fill", title: "Updates & Releases", color: .blue)
                     }
-                    
-                    Toggle(isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "forceShowGuides") },
-                        set: { UserDefaults.standard.set($0, forKey: "forceShowGuides") }
-                    )) {
-                        Label("Force Show Guides", systemImage: "book.circle")
+                } header: {
+                    Text("Updates & Releases")
+                } footer: {
+                    Text("GitHub release checks, prerelease filtering, update enforcement")
+                }
+                
+                // Sources & Library Section
+                Section {
+                    NavigationLink(destination: SourcesLibraryDevView()) {
+                        DeveloperMenuRow(icon: "server.rack", title: "Sources & Library", color: .purple)
+                    }
+                } header: {
+                    Text("Sources & Library")
+                } footer: {
+                    Text("Source reloads, cache invalidation, raw JSON inspection")
+                }
+                
+                // Install & IPA Section
+                Section {
+                    NavigationLink(destination: InstallIPADevView()) {
+                        DeveloperMenuRow(icon: "doc.zipper", title: "Install & IPA", color: .orange)
+                    }
+                } header: {
+                    Text("Install & IPA")
+                } footer: {
+                    Text("IPA validation, install queue, logs, InstallModifyDialog testing")
+                }
+                
+                // UI & Layout Section
+                Section {
+                    NavigationLink(destination: UILayoutDevView()) {
+                        DeveloperMenuRow(icon: "paintbrush.fill", title: "UI & Layout", color: .pink)
+                    }
+                } header: {
+                    Text("UI & Layout")
+                } footer: {
+                    Text("Appearance overrides, dynamic type, animations, debugging overlays")
+                }
+                
+                // Network & System Section
+                Section {
+                    NavigationLink(destination: NetworkSystemDevView()) {
+                        DeveloperMenuRow(icon: "network", title: "Network & System", color: .green)
+                    }
+                } header: {
+                    Text("Network & System")
+                } footer: {
+                    Text("Offline simulation, latency injection, request logging")
+                }
+                
+                // State & Persistence Section
+                Section {
+                    NavigationLink(destination: StatePersistenceDevView()) {
+                        DeveloperMenuRow(icon: "cylinder.split.1x2.fill", title: "State & Persistence", color: .cyan)
+                    }
+                } header: {
+                    Text("State & Persistence")
+                } footer: {
+                    Text("AppStorage, UserDefaults, caches, onboarding state")
+                }
+                
+                // Legacy Tools Section
+                Section {
+                    NavigationLink(destination: AppLogsView()) {
+                        DeveloperMenuRow(icon: "terminal.fill", title: "App Logs", color: .gray)
+                    }
+                    NavigationLink(destination: TestNotificationsView()) {
+                        DeveloperMenuRow(icon: "bell.badge.fill", title: "Test Notifications", color: .red)
+                    }
+                } header: {
+                    Text("Diagnostics")
+                }
+                
+                // Security Section
+                Section {
+                    NavigationLink(destination: DeveloperSecurityView()) {
+                        DeveloperMenuRow(icon: "lock.shield.fill", title: "Security Settings", color: .orange)
                     }
                     
                     Button {
-                        // Reset onboarding flag to show it again
-                        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
-                        HapticsManager.shared.success()
-                        
-                        // Log the action
-                        AppLogManager.shared.info("Onboarding reset - user will see onboarding again on next launch", category: "Developer")
-                        
-                        // Show confirmation alert
-                        UIAlertController.showAlertWithOk(
-                            title: "Onboarding Reset",
-                            message: "The onboarding screen will be shown when you restart the app."
-                        )
+                        authManager.lockDeveloperMode()
+                        UserDefaults.standard.set(false, forKey: "isDeveloperModeEnabled")
                     } label: {
-                        Label("Replay Onboarding", systemImage: "arrow.counterclockwise.circle")
+                        HStack {
+                            Image(systemName: "lock.fill")
+                                .foregroundStyle(.red)
+                            Text("Lock Developer Mode")
+                                .foregroundStyle(.red)
+                        }
                     }
                 } header: {
-                    Text("Experiments")
-                }
-                
-                Section(header: Text("Notifications")) {
-                    NavigationLink(destination: TestNotificationsView()) {
-                        Label("Test Notifications", systemImage: "bell.badge")
-                    }
-                }
-                
-                Section(header: Text("Danger Zone")) {
-                    Button(role: .destructive) {
-                        resetAppState()
-                    } label: {
-                        Label("Reset App State", systemImage: "trash")
-                    }
-                    
-                    Button(role: .destructive) {
-                        resetSettings()
-                    } label: {
-                        Label("Reset Settings", systemImage: "gear.badge.xmark")
-                    }
-                    
-                    Button(role: .destructive) {
-                        showResetConfirmation = true
-                    } label: {
-                        Label("Reset All Data", systemImage: "exclamationmark.triangle.fill")
-                    }
-                }
-                
-                Section {
-                    Button("Lock Developer Mode") {
-                        UserDefaults.standard.set(false, forKey: "isDeveloperModeEnabled")
-                    }
-                    .foregroundStyle(.red)
+                    Text("Security")
                 }
             }
-        }
-        .alert("Reset All Data", isPresented: $showResetConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Reset", role: .destructive) {
-                resetAllData()
-            }
-        } message: {
-            Text("This will delete all sources, apps, settings, and certificates. This action cannot be undone.")
         }
         .onChange(of: scenePhase) { newPhase in
-            if newPhase == .background || newPhase == .inactive {
-                // Hide developer mode when app goes to background or becomes inactive
-                UserDefaults.standard.set(false, forKey: "isDeveloperModeEnabled")
+            if newPhase == .background {
+                authManager.lockDeveloperMode()
             }
         }
     }
+}
+
+// MARK: - Developer Menu Row
+struct DeveloperMenuRow: View {
+    let icon: String
+    let title: String
+    let color: Color
     
-    private func resetAppState() {
-        // Implementation to clear cache, etc.
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(color.opacity(0.15))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            Text(title)
+                .font(.system(size: 15, weight: .medium))
+        }
     }
+}
+
+// MARK: - Developer Security View
+struct DeveloperSecurityView: View {
+    @StateObject private var authManager = DeveloperAuthManager.shared
+    @State private var showChangePasscode = false
+    @State private var showRemovePasscode = false
     
-    private func resetSettings() {
-        if let bundleID = Bundle.main.bundleIdentifier {
-            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+    var body: some View {
+        List {
+            Section(header: Text("Authentication")) {
+                HStack {
+                    Text("Passcode")
+                    Spacer()
+                    Text(authManager.hasPasscodeSet ? "Set" : "Not Set")
+                        .foregroundStyle(.secondary)
+                }
+                
+                if authManager.hasPasscodeSet {
+                    Button("Change Passcode") {
+                        showChangePasscode = true
+                    }
+                    
+                    Button("Remove Passcode", role: .destructive) {
+                        showRemovePasscode = true
+                    }
+                } else {
+                    Button("Set Up Passcode") {
+                        showChangePasscode = true
+                    }
+                }
+            }
+            
+            Section(header: Text("Biometrics")) {
+                HStack {
+                    Text("Biometric Type")
+                    Spacer()
+                    Text(biometricTypeName)
+                        .foregroundStyle(.secondary)
+                }
+                
+                HStack {
+                    Text("Available")
+                    Spacer()
+                    Text(authManager.canUseBiometrics ? "Yes" : "No")
+                        .foregroundStyle(authManager.canUseBiometrics ? .green : .red)
+                }
+            }
+            
+            Section(header: Text("Developer Token")) {
+                HStack {
+                    Text("Saved Token")
+                    Spacer()
+                    Text(authManager.hasSavedToken ? "Present" : "None")
+                        .foregroundStyle(.secondary)
+                }
+                
+                if authManager.hasSavedToken {
+                    Button("Clear Saved Token", role: .destructive) {
+                        authManager.clearSavedToken()
+                    }
+                }
+            }
+            
+            Section(header: Text("Session")) {
+                HStack {
+                    Text("Last Authentication")
+                    Spacer()
+                    if let lastAuth = authManager.lastAuthTime {
+                        Text(lastAuth, style: .relative)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Never")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Security Settings")
+        .sheet(isPresented: $showChangePasscode) {
+            PasscodeSetupView(onComplete: { _ in })
+        }
+        .alert("Remove Passcode", isPresented: $showRemovePasscode) {
+            Button("Cancel", role: .cancel) { }
+            Button("Remove", role: .destructive) {
+                _ = authManager.removePasscode()
+            }
+        } message: {
+            Text("Are you sure you want to remove the developer passcode?")
         }
     }
     
-    private func resetAllData() {
-        resetAppState()
-        resetSettings()
-        // Add more reset logic here (e.g. delete CoreData store)
+    private var biometricTypeName: String {
+        switch authManager.biometricType {
+        case .faceID: return "Face ID"
+        case .touchID: return "Touch ID"
+        case .opticID: return "Optic ID"
+        case .none: return "None"
+        @unknown default: return "Unknown"
+        }
     }
 }
 
@@ -1645,5 +1935,1152 @@ extension UNNotificationSetting {
         case .enabled: return "Enabled"
         @unknown default: return "Unknown"
         }
+    }
+}
+
+// MARK: - Updates & Releases View
+struct UpdatesReleasesView: View {
+    @State private var isCheckingUpdates = false
+    @State private var latestRelease: GitHubRelease?
+    @State private var allReleases: [GitHubRelease] = []
+    @State private var errorMessage: String?
+    @State private var showPrereleases = false
+    @AppStorage("dev.mandatoryUpdateEnabled") private var mandatoryUpdateEnabled = false
+    @AppStorage("dev.updateBannerDismissed") private var updateBannerDismissed = false
+    @AppStorage("dev.showUpdateBannerPreview") private var showUpdateBannerPreview = false
+    
+    private let repoOwner = "aoyn1xw"
+    private let repoName = "Portal"
+    
+    var currentVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+    
+    var currentBuild: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    }
+    
+    var body: some View {
+        List {
+            // Current Version Info
+            Section(header: Text("Installed Version")) {
+                HStack {
+                    Text("Version")
+                    Spacer()
+                    Text(currentVersion)
+                        .foregroundStyle(.secondary)
+                        .font(.system(.body, design: .monospaced))
+                }
+                
+                HStack {
+                    Text("Build")
+                    Spacer()
+                    Text(currentBuild)
+                        .foregroundStyle(.secondary)
+                        .font(.system(.body, design: .monospaced))
+                }
+                
+                HStack {
+                    Text("Bundle ID")
+                    Spacer()
+                    Text(Bundle.main.bundleIdentifier ?? "Unknown")
+                        .foregroundStyle(.secondary)
+                        .font(.caption.monospaced())
+                        .lineLimit(1)
+                }
+            }
+            
+            // Update Check
+            Section(header: Text("GitHub Releases")) {
+                Button {
+                    checkForUpdates()
+                } label: {
+                    HStack {
+                        if isCheckingUpdates {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text("Check for Updates")
+                    }
+                }
+                .disabled(isCheckingUpdates)
+                
+                Toggle("Include Prereleases", isOn: $showPrereleases)
+                    .onChange(of: showPrereleases) { _ in
+                        checkForUpdates()
+                    }
+                
+                if let release = latestRelease {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Latest: \(release.tagName)")
+                                .font(.headline)
+                            if release.prerelease {
+                                Text("PRE")
+                                    .font(.caption2.bold())
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.orange)
+                                    .foregroundStyle(.white)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        
+                        Text(release.name)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        
+                        if let publishedAt = release.publishedAt {
+                            Text("Published: \(publishedAt, style: .date)")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                
+                if let error = errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+            
+            // All Releases
+            if !allReleases.isEmpty {
+                Section(header: Text("All Releases (\(allReleases.count))")) {
+                    ForEach(allReleases, id: \.id) { release in
+                        NavigationLink(destination: ReleaseDetailView(release: release)) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack {
+                                        Text(release.tagName)
+                                            .font(.system(.body, design: .monospaced))
+                                        if release.prerelease {
+                                            Text("PRE")
+                                                .font(.caption2.bold())
+                                                .padding(.horizontal, 4)
+                                                .padding(.vertical, 1)
+                                                .background(Color.orange.opacity(0.2))
+                                                .foregroundStyle(.orange)
+                                                .clipShape(Capsule())
+                                        }
+                                    }
+                                    Text(release.name)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Update Settings
+            Section(header: Text("Update Settings")) {
+                Toggle("Mandatory Update Enforcement", isOn: $mandatoryUpdateEnabled)
+                
+                Toggle("Show Update Banner Preview", isOn: $showUpdateBannerPreview)
+                
+                Button("Reset Dismissed Update State") {
+                    updateBannerDismissed = false
+                    HapticsManager.shared.success()
+                    AppLogManager.shared.info("Update banner dismissed state reset", category: "Developer")
+                }
+                
+                HStack {
+                    Text("Banner Dismissed")
+                    Spacer()
+                    Text(updateBannerDismissed ? "Yes" : "No")
+                        .foregroundStyle(updateBannerDismissed ? .orange : .green)
+                }
+            }
+        }
+        .navigationTitle("Updates & Releases")
+        .onAppear {
+            if allReleases.isEmpty {
+                checkForUpdates()
+            }
+        }
+    }
+    
+    private func checkForUpdates() {
+        isCheckingUpdates = true
+        errorMessage = nil
+        
+        let urlString = "https://api.github.com/repos/\(repoOwner)/\(repoName)/releases"
+        guard let url = URL(string: urlString) else {
+            errorMessage = "Invalid URL"
+            isCheckingUpdates = false
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                isCheckingUpdates = false
+                
+                if let error = error {
+                    errorMessage = error.localizedDescription
+                    AppLogManager.shared.error("Failed to check updates: \(error.localizedDescription)", category: "Developer")
+                    return
+                }
+                
+                guard let data = data else {
+                    errorMessage = "No data received"
+                    return
+                }
+                
+                do {
+                    let releases = try JSONDecoder().decode([GitHubRelease].self, from: data)
+                    allReleases = showPrereleases ? releases : releases.filter { !$0.prerelease }
+                    latestRelease = allReleases.first
+                    AppLogManager.shared.success("Fetched \(releases.count) releases", category: "Developer")
+                } catch {
+                    errorMessage = "Failed to parse releases: \(error.localizedDescription)"
+                    AppLogManager.shared.error("Failed to parse releases: \(error.localizedDescription)", category: "Developer")
+                }
+            }
+        }.resume()
+    }
+}
+
+// MARK: - GitHub Release Model
+struct GitHubRelease: Codable, Identifiable {
+    let id: Int
+    let tagName: String
+    let name: String
+    let body: String?
+    let prerelease: Bool
+    let draft: Bool
+    let publishedAt: Date?
+    let htmlUrl: String
+    let assets: [GitHubAsset]
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case tagName = "tag_name"
+        case name
+        case body
+        case prerelease
+        case draft
+        case publishedAt = "published_at"
+        case htmlUrl = "html_url"
+        case assets
+    }
+}
+
+struct GitHubAsset: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let size: Int
+    let downloadCount: Int
+    let browserDownloadUrl: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, size
+        case downloadCount = "download_count"
+        case browserDownloadUrl = "browser_download_url"
+    }
+}
+
+// MARK: - Release Detail View
+struct ReleaseDetailView: View {
+    let release: GitHubRelease
+    
+    var body: some View {
+        List {
+            Section(header: Text("Release Info")) {
+                LabeledContent("Tag", value: release.tagName)
+                LabeledContent("Name", value: release.name)
+                LabeledContent("Prerelease", value: release.prerelease ? "Yes" : "No")
+                if let date = release.publishedAt {
+                    LabeledContent("Published", value: date.formatted())
+                }
+            }
+            
+            if let body = release.body, !body.isEmpty {
+                Section(header: Text("Release Notes")) {
+                    Text(body)
+                        .font(.system(.body, design: .monospaced))
+                }
+            }
+            
+            if !release.assets.isEmpty {
+                Section(header: Text("Assets (\(release.assets.count))")) {
+                    ForEach(release.assets) { asset in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(asset.name)
+                                .font(.system(.body, design: .monospaced))
+                            HStack {
+                                Text(ByteCountFormatter.string(fromByteCount: Int64(asset.size), countStyle: .file))
+                                Text("•")
+                                Text("\(asset.downloadCount) downloads")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            
+            Section {
+                Button("Open in GitHub") {
+                    if let url = URL(string: release.htmlUrl) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
+        }
+        .navigationTitle(release.tagName)
+    }
+}
+
+// MARK: - Sources & Library Dev View
+struct SourcesLibraryDevView: View {
+    @StateObject private var viewModel = SourcesViewModel.shared
+    @State private var isReloading = false
+    @State private var selectedSource: AltSource?
+    @State private var rawJSON: String = ""
+    @State private var showRawJSON = false
+    
+    @FetchRequest(
+        entity: AltSource.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.order, ascending: true)]
+    ) private var sources: FetchedResults<AltSource>
+    
+    var body: some View {
+        List {
+            // Source Actions
+            Section(header: Text("Source Actions")) {
+                Button {
+                    reloadAllSources()
+                } label: {
+                    HStack {
+                        if isReloading {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text("Force Reload All Sources")
+                    }
+                }
+                .disabled(isReloading)
+                
+                Button {
+                    invalidateSourceCache()
+                } label: {
+                    Label("Invalidate Source Cache", systemImage: "trash")
+                }
+                
+                Button {
+                    refetchMetadata()
+                } label: {
+                    Label("Re-fetch All Metadata", systemImage: "arrow.triangle.2.circlepath")
+                }
+            }
+            
+            // Source List
+            Section(header: Text("Sources (\(sources.count))")) {
+                ForEach(sources) { source in
+                    NavigationLink(destination: SourceInspectorView(source: source, viewModel: viewModel)) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(source.name ?? "Unknown")
+                                .font(.headline)
+                            if let url = source.sourceURL {
+                                Text(url.absoluteString)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            if let repo = viewModel.sources[source] {
+                                Text("\(repo.apps.count) apps")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Library Actions
+            Section(header: Text("Library Actions")) {
+                Button {
+                    forceLibraryRerender()
+                } label: {
+                    Label("Force Library Re-render", systemImage: "arrow.counterclockwise")
+                }
+                
+                Button {
+                    clearLibraryCache()
+                } label: {
+                    Label("Clear Library Cache", systemImage: "trash")
+                }
+            }
+            
+            // Offline Handling
+            Section(header: Text("Offline Handling")) {
+                Toggle("Simulate Offline Mode", isOn: Binding(
+                    get: { UserDefaults.standard.bool(forKey: "dev.simulateOffline") },
+                    set: { UserDefaults.standard.set($0, forKey: "dev.simulateOffline") }
+                ))
+                
+                Button {
+                    testOfflineSourceHandling()
+                } label: {
+                    Label("Test Offline Source Handling", systemImage: "wifi.slash")
+                }
+            }
+        }
+        .navigationTitle("Sources & Library")
+    }
+    
+    private func reloadAllSources() {
+        isReloading = true
+        Task {
+            await viewModel.fetchSources(sources, refresh: true)
+            await MainActor.run {
+                isReloading = false
+                HapticsManager.shared.success()
+                AppLogManager.shared.success("All sources reloaded", category: "Developer")
+            }
+        }
+    }
+    
+    private func invalidateSourceCache() {
+        // Clear URLCache
+        URLCache.shared.removeAllCachedResponses()
+        
+        // Clear image cache
+        let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        if let cacheURL = cacheURL {
+            try? FileManager.default.removeItem(at: cacheURL.appendingPathComponent("com.github.kean.Nuke.Cache"))
+        }
+        
+        HapticsManager.shared.success()
+        AppLogManager.shared.success("Source cache invalidated", category: "Developer")
+    }
+    
+    private func refetchMetadata() {
+        Task {
+            await viewModel.fetchSources(sources, refresh: true)
+            HapticsManager.shared.success()
+            AppLogManager.shared.success("Metadata re-fetched", category: "Developer")
+        }
+    }
+    
+    private func forceLibraryRerender() {
+        NotificationCenter.default.post(name: Notification.Name("Feather.forceLibraryRerender"), object: nil)
+        HapticsManager.shared.success()
+        AppLogManager.shared.info("Library re-render triggered", category: "Developer")
+    }
+    
+    private func clearLibraryCache() {
+        // Clear any library-specific caches
+        HapticsManager.shared.success()
+        AppLogManager.shared.success("Library cache cleared", category: "Developer")
+    }
+    
+    private func testOfflineSourceHandling() {
+        UserDefaults.standard.set(true, forKey: "dev.simulateOffline")
+        Task {
+            await viewModel.fetchSources(sources, refresh: true)
+            await MainActor.run {
+                UserDefaults.standard.set(false, forKey: "dev.simulateOffline")
+                AppLogManager.shared.info("Offline source handling test completed", category: "Developer")
+            }
+        }
+    }
+}
+
+// MARK: - Source Inspector View
+struct SourceInspectorView: View {
+    let source: AltSource
+    @ObservedObject var viewModel: SourcesViewModel
+    @State private var rawJSON: String = ""
+    @State private var isLoadingJSON = false
+    
+    var body: some View {
+        List {
+            Section(header: Text("Source Info")) {
+                LabeledContent("Name", value: source.name ?? "Unknown")
+                if let url = source.sourceURL {
+                    LabeledContent("URL", value: url.absoluteString)
+                }
+                LabeledContent("Order", value: "\(source.order)")
+                if let date = source.date {
+                    LabeledContent("Added", value: date.formatted())
+                }
+            }
+            
+            if let repo = viewModel.sources[source] {
+                Section(header: Text("Repository Data")) {
+                    LabeledContent("Apps", value: "\(repo.apps.count)")
+                    if let news = repo.news {
+                        LabeledContent("News Items", value: "\(news.count)")
+                    }
+                    if let name = repo.name {
+                        LabeledContent("Repo Name", value: name)
+                    }
+                }
+            }
+            
+            Section(header: Text("Raw JSON")) {
+                Button {
+                    loadRawJSON()
+                } label: {
+                    HStack {
+                        if isLoadingJSON {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                        Text("Load Raw JSON")
+                    }
+                }
+                
+                if !rawJSON.isEmpty {
+                    ScrollView(.horizontal) {
+                        Text(rawJSON)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                    .frame(maxHeight: 300)
+                    
+                    Button("Copy JSON") {
+                        UIPasteboard.general.string = rawJSON
+                        HapticsManager.shared.success()
+                    }
+                }
+            }
+        }
+        .navigationTitle(source.name ?? "Source")
+    }
+    
+    private func loadRawJSON() {
+        guard let url = source.sourceURL else { return }
+        isLoadingJSON = true
+        
+        URLSession.shared.dataTask(with: url) { data, _, error in
+            DispatchQueue.main.async {
+                isLoadingJSON = false
+                if let data = data {
+                    if let json = try? JSONSerialization.jsonObject(with: data),
+                       let prettyData = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted),
+                       let prettyString = String(data: prettyData, encoding: .utf8) {
+                        rawJSON = prettyString
+                    } else {
+                        rawJSON = String(data: data, encoding: .utf8) ?? "Unable to decode"
+                    }
+                } else if let error = error {
+                    rawJSON = "Error: \(error.localizedDescription)"
+                }
+            }
+        }.resume()
+    }
+}
+
+// MARK: - Install & IPA Dev View
+struct InstallIPADevView: View {
+    @StateObject private var downloadManager = DownloadManager.shared
+    @State private var showInstallModifyDialog = false
+    @State private var lastInstallLogs: [String] = []
+    @State private var selectedApp: (any AppInfoPresentable)?
+    
+    @FetchRequest(
+        entity: Imported.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \Imported.dateAdded, ascending: false)]
+    ) private var importedApps: FetchedResults<Imported>
+    
+    var body: some View {
+        List {
+            // Install Queue
+            Section(header: Text("Download Queue (\(downloadManager.downloads.count))")) {
+                if downloadManager.downloads.isEmpty {
+                    Text("No active downloads")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(downloadManager.downloads, id: \.id) { download in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(download.fileName)
+                                .font(.system(.body, design: .monospaced))
+                            ProgressView(value: download.overallProgress)
+                            HStack {
+                                Text("\(Int(download.progress * 100))% downloaded")
+                                Spacer()
+                                Text("\(Int(download.unpackageProgress * 100))% processed")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                
+                Button("Clear Pending Installs", role: .destructive) {
+                    clearPendingInstalls()
+                }
+            }
+            
+            // IPA Validation
+            Section(header: Text("IPA Tools")) {
+                NavigationLink(destination: IPAInspectorView()) {
+                    Label("IPA Inspector", systemImage: "doc.zipper")
+                }
+                
+                NavigationLink(destination: IPAIntegrityCheckerView()) {
+                    Label("Integrity Checker", systemImage: "checkmark.shield")
+                }
+            }
+            
+            // InstallModifyDialog Testing
+            Section(header: Text("InstallModifyDialog Testing")) {
+                if let firstApp = importedApps.first {
+                    Button("Show InstallModifyDialog (Full Screen)") {
+                        selectedApp = firstApp
+                        showInstallModifyDialog = true
+                    }
+                } else {
+                    Text("No imported apps available for testing")
+                        .foregroundStyle(.secondary)
+                }
+                
+                Toggle("Always Show After Download", isOn: Binding(
+                    get: { UserDefaults.standard.bool(forKey: "dev.alwaysShowInstallModify") },
+                    set: { UserDefaults.standard.set($0, forKey: "dev.alwaysShowInstallModify") }
+                ))
+            }
+            
+            // Last Install Logs
+            Section(header: Text("Last Install Logs")) {
+                Button("Load Install Logs") {
+                    loadInstallLogs()
+                }
+                
+                if !lastInstallLogs.isEmpty {
+                    ForEach(lastInstallLogs, id: \.self) { log in
+                        Text(log)
+                            .font(.system(.caption, design: .monospaced))
+                    }
+                }
+            }
+        }
+        .navigationTitle("Install & IPA")
+        .fullScreenCover(isPresented: $showInstallModifyDialog) {
+            if let app = selectedApp {
+                InstallModifyDialogView(app: app)
+            }
+        }
+    }
+    
+    private func clearPendingInstalls() {
+        for download in downloadManager.downloads {
+            downloadManager.cancelDownload(download)
+        }
+        HapticsManager.shared.success()
+        AppLogManager.shared.info("Pending installs cleared", category: "Developer")
+    }
+    
+    private func loadInstallLogs() {
+        lastInstallLogs = AppLogManager.shared.logs
+            .filter { $0.category == "Install" || $0.category == "Download" }
+            .prefix(20)
+            .map { "[\($0.level.rawValue)] \($0.message)" }
+    }
+}
+
+// MARK: - UI & Layout Dev View
+struct UILayoutDevView: View {
+    @AppStorage("dev.showLayoutBoundaries") private var showLayoutBoundaries = false
+    @AppStorage("dev.slowAnimations") private var slowAnimations = false
+    @AppStorage("dev.animationSpeed") private var animationSpeed: Double = 1.0
+    @AppStorage("dev.forceDarkMode") private var forceDarkMode = false
+    @AppStorage("dev.forceLightMode") private var forceLightMode = false
+    @AppStorage("dev.forceReducedMotion") private var forceReducedMotion = false
+    @AppStorage("dev.dynamicTypeSize") private var dynamicTypeSize: String = "default"
+    @AppStorage("dev.showBannerPreview") private var showBannerPreview = false
+    
+    var body: some View {
+        List {
+            // Appearance Overrides
+            Section(header: Text("Appearance Overrides")) {
+                Toggle("Force Dark Mode", isOn: $forceDarkMode)
+                    .onChange(of: forceDarkMode) { newValue in
+                        if newValue { forceLightMode = false }
+                        applyAppearanceOverride()
+                    }
+                
+                Toggle("Force Light Mode", isOn: $forceLightMode)
+                    .onChange(of: forceLightMode) { newValue in
+                        if newValue { forceDarkMode = false }
+                        applyAppearanceOverride()
+                    }
+                
+                Button("Reset to System") {
+                    forceDarkMode = false
+                    forceLightMode = false
+                    applyAppearanceOverride()
+                }
+            }
+            
+            // Dynamic Type
+            Section(header: Text("Dynamic Type")) {
+                Picker("Text Size", selection: $dynamicTypeSize) {
+                    Text("Default").tag("default")
+                    Text("Extra Small").tag("xSmall")
+                    Text("Small").tag("small")
+                    Text("Medium").tag("medium")
+                    Text("Large").tag("large")
+                    Text("Extra Large").tag("xLarge")
+                    Text("XXL").tag("xxLarge")
+                    Text("XXXL").tag("xxxLarge")
+                    Text("Accessibility M").tag("accessibility1")
+                    Text("Accessibility L").tag("accessibility2")
+                    Text("Accessibility XL").tag("accessibility3")
+                }
+            }
+            
+            // Motion & Animations
+            Section(header: Text("Motion & Animations")) {
+                Toggle("Reduced Motion", isOn: $forceReducedMotion)
+                
+                Toggle("Slow Animations", isOn: $slowAnimations)
+                    .onChange(of: slowAnimations) { newValue in
+                        applyAnimationSpeed(newValue ? 0.1 : animationSpeed)
+                    }
+                
+                VStack(alignment: .leading) {
+                    Text("Animation Speed: \(String(format: "%.1fx", animationSpeed))")
+                    Slider(value: $animationSpeed, in: 0.1...2.0, step: 0.1)
+                        .onChange(of: animationSpeed) { newValue in
+                            if !slowAnimations {
+                                applyAnimationSpeed(newValue)
+                            }
+                        }
+                }
+            }
+            
+            // Layout Debugging
+            Section(header: Text("Layout Debugging")) {
+                Toggle("Show Layout Boundaries", isOn: $showLayoutBoundaries)
+                    .onChange(of: showLayoutBoundaries) { newValue in
+                        UserDefaults.standard.set(newValue, forKey: "_UIConstraintBasedLayoutPlayground")
+                    }
+            }
+            
+            // Banner Injection
+            Section(header: Text("Banner Injection")) {
+                Toggle("Show Test Banner", isOn: $showBannerPreview)
+                
+                Button("Inject Update Banner") {
+                    injectUpdateBanner()
+                }
+                
+                Button("Inject Error Banner") {
+                    injectErrorBanner()
+                }
+                
+                Button("Clear All Banners") {
+                    clearBanners()
+                }
+            }
+        }
+        .navigationTitle("UI & Layout")
+    }
+    
+    private func applyAppearanceOverride() {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else { return }
+        
+        if forceDarkMode {
+            window.overrideUserInterfaceStyle = .dark
+        } else if forceLightMode {
+            window.overrideUserInterfaceStyle = .light
+        } else {
+            window.overrideUserInterfaceStyle = .unspecified
+        }
+    }
+    
+    private func applyAnimationSpeed(_ speed: Double) {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else { return }
+        window.layer.speed = Float(speed)
+    }
+    
+    private func injectUpdateBanner() {
+        NotificationCenter.default.post(
+            name: Notification.Name("Feather.showBanner"),
+            object: nil,
+            userInfo: ["type": "update", "message": "A new version is available!"]
+        )
+        AppLogManager.shared.info("Update banner injected", category: "Developer")
+    }
+    
+    private func injectErrorBanner() {
+        NotificationCenter.default.post(
+            name: Notification.Name("Feather.showBanner"),
+            object: nil,
+            userInfo: ["type": "error", "message": "Test error banner"]
+        )
+        AppLogManager.shared.info("Error banner injected", category: "Developer")
+    }
+    
+    private func clearBanners() {
+        NotificationCenter.default.post(name: Notification.Name("Feather.clearBanners"), object: nil)
+        AppLogManager.shared.info("Banners cleared", category: "Developer")
+    }
+}
+
+// MARK: - Network & System Dev View
+struct NetworkSystemDevView: View {
+    @AppStorage("dev.simulateOffline") private var simulateOffline = false
+    @AppStorage("dev.latencyInjection") private var latencyInjection: Double = 0
+    @AppStorage("dev.verboseLogging") private var verboseLogging = false
+    @AppStorage("dev.logNetworkRequests") private var logNetworkRequests = false
+    @State private var networkLogs: [String] = []
+    @State private var systemInfo: [String: String] = [:]
+    
+    var body: some View {
+        List {
+            // Network Simulation
+            Section(header: Text("Network Simulation")) {
+                Toggle("Simulate Offline Mode", isOn: $simulateOffline)
+                    .onChange(of: simulateOffline) { newValue in
+                        AppLogManager.shared.info("Offline simulation: \(newValue ? "enabled" : "disabled")", category: "Developer")
+                    }
+                
+                VStack(alignment: .leading) {
+                    Text("Latency Injection: \(Int(latencyInjection))ms")
+                    Slider(value: $latencyInjection, in: 0...5000, step: 100)
+                }
+                
+                Toggle("Log Network Requests", isOn: $logNetworkRequests)
+            }
+            
+            // Logging
+            Section(header: Text("Logging")) {
+                Toggle("Verbose Logging", isOn: $verboseLogging)
+                    .onChange(of: verboseLogging) { newValue in
+                        UserDefaults.standard.set(newValue, forKey: "verboseLogging")
+                    }
+                
+                NavigationLink(destination: AppLogsView()) {
+                    Label("View App Logs", systemImage: "terminal")
+                }
+                
+                Button("Export Logs") {
+                    exportLogs()
+                }
+            }
+            
+            // System Info
+            Section(header: Text("System Information")) {
+                Button("Refresh System Info") {
+                    loadSystemInfo()
+                }
+                
+                ForEach(Array(systemInfo.keys.sorted()), id: \.self) { key in
+                    HStack {
+                        Text(key)
+                        Spacer()
+                        Text(systemInfo[key] ?? "")
+                            .foregroundStyle(.secondary)
+                            .font(.system(.caption, design: .monospaced))
+                    }
+                }
+            }
+            
+            // Failure Inspection
+            Section(header: Text("Failure Inspection")) {
+                NavigationLink(destination: FailureInspectorView()) {
+                    Label("View Recent Failures", systemImage: "exclamationmark.triangle")
+                }
+                
+                Button("Simulate Network Failure") {
+                    simulateNetworkFailure()
+                }
+            }
+        }
+        .navigationTitle("Network & System")
+        .onAppear {
+            loadSystemInfo()
+        }
+    }
+    
+    private func loadSystemInfo() {
+        systemInfo = [
+            "Device": UIDevice.current.model,
+            "iOS Version": UIDevice.current.systemVersion,
+            "App Version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown",
+            "Build": Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown",
+            "Memory": getMemoryUsage(),
+            "Disk Free": getDiskSpace(),
+            "Network": getNetworkStatus()
+        ]
+    }
+    
+    private func getMemoryUsage() -> String {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        if result == KERN_SUCCESS {
+            return ByteCountFormatter.string(fromByteCount: Int64(info.resident_size), countStyle: .memory)
+        }
+        return "Unknown"
+    }
+    
+    private func getDiskSpace() -> String {
+        if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
+           let freeSpace = attrs[.systemFreeSize] as? Int64 {
+            return ByteCountFormatter.string(fromByteCount: freeSpace, countStyle: .file)
+        }
+        return "Unknown"
+    }
+    
+    private func getNetworkStatus() -> String {
+        return simulateOffline ? "Offline (Simulated)" : "Online"
+    }
+    
+    private func exportLogs() {
+        let logs = AppLogManager.shared.exportLogs()
+        UIPasteboard.general.string = logs
+        HapticsManager.shared.success()
+        AppLogManager.shared.success("Logs exported to clipboard", category: "Developer")
+    }
+    
+    private func simulateNetworkFailure() {
+        NotificationCenter.default.post(
+            name: DownloadManager.downloadDidFailNotification,
+            object: nil,
+            userInfo: ["error": "Simulated network failure", "downloadId": "test"]
+        )
+        AppLogManager.shared.warning("Network failure simulated", category: "Developer")
+    }
+}
+
+// MARK: - Failure Inspector View
+struct FailureInspectorView: View {
+    @StateObject private var logManager = AppLogManager.shared
+    
+    var failureLogs: [LogEntry] {
+        logManager.logs.filter { $0.level == .error || $0.level == .critical }
+    }
+    
+    var body: some View {
+        List {
+            if failureLogs.isEmpty {
+                Text("No failures recorded")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(failureLogs) { log in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(log.level.icon)
+                            Text(log.formattedTimestamp)
+                                .font(.caption.monospaced())
+                        }
+                        Text(log.message)
+                            .font(.system(.body, design: .monospaced))
+                        Text("[\(log.category)] \(log.file):\(log.line)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle("Failures")
+    }
+}
+
+// MARK: - State & Persistence Dev View
+struct StatePersistenceDevView: View {
+    @State private var userDefaultsKeys: [String] = []
+    @State private var appStorageKeys: [String] = []
+    @State private var cacheSize: String = "Calculating..."
+    @State private var showClearConfirmation = false
+    @State private var clearTarget: ClearTarget = .all
+    
+    enum ClearTarget {
+        case all, userDefaults, caches, onboarding
+    }
+    
+    var body: some View {
+        List {
+            // AppStorage / UserDefaults
+            Section(header: Text("UserDefaults")) {
+                NavigationLink(destination: UserDefaultsEditorView()) {
+                    Label("UserDefaults Editor", systemImage: "list.bullet.rectangle")
+                }
+                
+                Button("Clear All UserDefaults", role: .destructive) {
+                    clearTarget = .userDefaults
+                    showClearConfirmation = true
+                }
+            }
+            
+            // Caches
+            Section(header: Text("Caches")) {
+                HStack {
+                    Text("Cache Size")
+                    Spacer()
+                    Text(cacheSize)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Button("Clear URL Cache") {
+                    URLCache.shared.removeAllCachedResponses()
+                    calculateCacheSize()
+                    HapticsManager.shared.success()
+                    AppLogManager.shared.success("URL cache cleared", category: "Developer")
+                }
+                
+                Button("Clear Image Cache") {
+                    clearImageCache()
+                }
+                
+                Button("Clear All Caches", role: .destructive) {
+                    clearTarget = .caches
+                    showClearConfirmation = true
+                }
+            }
+            
+            // Onboarding State
+            Section(header: Text("Onboarding State")) {
+                HStack {
+                    Text("Completed")
+                    Spacer()
+                    Text(UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") ? "Yes" : "No")
+                        .foregroundStyle(.secondary)
+                }
+                
+                Button("Reset Onboarding") {
+                    clearTarget = .onboarding
+                    showClearConfirmation = true
+                }
+            }
+            
+            // CoreData
+            Section(header: Text("CoreData")) {
+                NavigationLink(destination: CoreDataInspectorView()) {
+                    Label("CoreData Inspector", systemImage: "cylinder.split.1x2")
+                }
+            }
+            
+            // Danger Zone
+            Section(header: Text("Danger Zone")) {
+                Button("Reset All App Data", role: .destructive) {
+                    clearTarget = .all
+                    showClearConfirmation = true
+                }
+            }
+        }
+        .navigationTitle("State & Persistence")
+        .onAppear {
+            calculateCacheSize()
+        }
+        .alert("Confirm Clear", isPresented: $showClearConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clear", role: .destructive) {
+                performClear()
+            }
+        } message: {
+            Text(clearConfirmationMessage)
+        }
+    }
+    
+    private var clearConfirmationMessage: String {
+        switch clearTarget {
+        case .all: return "This will reset all app data including settings, sources, and certificates. This cannot be undone."
+        case .userDefaults: return "This will clear all UserDefaults. Some settings may be lost."
+        case .caches: return "This will clear all cached data including images and network responses."
+        case .onboarding: return "This will reset the onboarding state. You will see the onboarding screen on next launch."
+        }
+    }
+    
+    private func calculateCacheSize() {
+        var totalSize: Int64 = 0
+        
+        // URL Cache
+        totalSize += Int64(URLCache.shared.currentDiskUsage)
+        
+        // Image cache directory
+        if let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            if let size = try? FileManager.default.allocatedSizeOfDirectory(at: cacheURL) {
+                totalSize += Int64(size)
+            }
+        }
+        
+        cacheSize = ByteCountFormatter.string(fromByteCount: totalSize, countStyle: .file)
+    }
+    
+    private func clearImageCache() {
+        if let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            let nukeCache = cacheURL.appendingPathComponent("com.github.kean.Nuke.Cache")
+            try? FileManager.default.removeItem(at: nukeCache)
+        }
+        calculateCacheSize()
+        HapticsManager.shared.success()
+        AppLogManager.shared.success("Image cache cleared", category: "Developer")
+    }
+    
+    private func performClear() {
+        switch clearTarget {
+        case .all:
+            // Clear everything
+            if let bundleID = Bundle.main.bundleIdentifier {
+                UserDefaults.standard.removePersistentDomain(forName: bundleID)
+            }
+            URLCache.shared.removeAllCachedResponses()
+            clearImageCache()
+            AppLogManager.shared.warning("All app data reset", category: "Developer")
+            
+        case .userDefaults:
+            if let bundleID = Bundle.main.bundleIdentifier {
+                UserDefaults.standard.removePersistentDomain(forName: bundleID)
+            }
+            AppLogManager.shared.info("UserDefaults cleared", category: "Developer")
+            
+        case .caches:
+            URLCache.shared.removeAllCachedResponses()
+            clearImageCache()
+            AppLogManager.shared.info("All caches cleared", category: "Developer")
+            
+        case .onboarding:
+            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            AppLogManager.shared.info("Onboarding state reset", category: "Developer")
+        }
+        
+        calculateCacheSize()
+        HapticsManager.shared.success()
+    }
+}
+
+// MARK: - FileManager Extension for Directory Size
+extension FileManager {
+    func allocatedSizeOfDirectory(at url: URL) throws -> UInt64 {
+        var totalSize: UInt64 = 0
+        let resourceKeys: Set<URLResourceKey> = [.isRegularFileKey, .fileAllocatedSizeKey, .totalFileAllocatedSizeKey]
+        
+        guard let enumerator = self.enumerator(at: url, includingPropertiesForKeys: Array(resourceKeys), options: [], errorHandler: nil) else {
+            return 0
+        }
+        
+        for case let fileURL as URL in enumerator {
+            let resourceValues = try fileURL.resourceValues(forKeys: resourceKeys)
+            guard resourceValues.isRegularFile == true else { continue }
+            totalSize += UInt64(resourceValues.totalFileAllocatedSize ?? resourceValues.fileAllocatedSize ?? 0)
+        }
+        
+        return totalSize
     }
 }
