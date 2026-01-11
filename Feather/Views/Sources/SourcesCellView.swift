@@ -106,7 +106,9 @@ struct SourcesCellView: View {
 				.font(.system(size: 10, weight: .medium))
 				.foregroundStyle(.tertiary)
 		}
+		.padding(.horizontal, 8)
 		.padding(.vertical, 6)
+		.contentShape(Rectangle())
 		.swipeActions(edge: .leading) {
 			Button {
 				viewModel.togglePin(for: source)

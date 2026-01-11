@@ -10,115 +10,106 @@ struct InstallModifyDialogView: View {
 	@State private var animateSuccess = false
 	
 	var body: some View {
-		ZStack {
-			// Background gradient
-			LinearGradient(
-				colors: [
-					Color.green.opacity(0.08),
-					Color(.systemBackground)
-				],
-				startPoint: .top,
-				endPoint: .center
-			)
-			.ignoresSafeArea()
-			
-			VStack(spacing: 0) {
-				// Drag indicator
-				Capsule()
-					.fill(Color.secondary.opacity(0.3))
-					.frame(width: 36, height: 5)
-					.padding(.top, 8)
+		NavigationView {
+			ZStack {
+				// Modern gradient background
+				LinearGradient(
+					colors: [
+						Color.green.opacity(0.08),
+						Color.green.opacity(0.03),
+						Color(.systemBackground)
+					],
+					startPoint: .topLeading,
+					endPoint: .bottomTrailing
+				)
+				.ignoresSafeArea()
 				
-				// Success header
-				VStack(spacing: 16) {
-					// Animated success icon with rings
-					ZStack {
-						// Outer pulse ring
-						Circle()
-							.stroke(Color.green.opacity(0.2), lineWidth: 2)
-							.frame(width: 90, height: 90)
-							.scaleEffect(animateSuccess ? 1.2 : 1.0)
-							.opacity(animateSuccess ? 0 : 0.5)
-						
-						// Middle ring
-						Circle()
-							.stroke(Color.green.opacity(0.3), lineWidth: 3)
-							.frame(width: 70, height: 70)
-						
-						// Inner filled circle
-						Circle()
-							.fill(
-								LinearGradient(
-									colors: [Color.green, Color.green.opacity(0.8)],
-									startPoint: .topLeading,
-									endPoint: .bottomTrailing
+				VStack(spacing: 0) {
+					// Success icon and message
+					VStack(spacing: 24) {
+						// Animated success icon
+						ZStack {
+							Circle()
+								.fill(
+									LinearGradient(
+										colors: [Color.green.opacity(0.15), Color.green.opacity(0.08)],
+										startPoint: .topLeading,
+										endPoint: .bottomTrailing
+									)
 								)
-							)
-							.frame(width: 56, height: 56)
-							.shadow(color: Color.green.opacity(0.4), radius: 12, x: 0, y: 4)
+								.frame(width: 120, height: 120)
+								.overlay(
+									Circle()
+										.stroke(
+											LinearGradient(
+												colors: [Color.green.opacity(0.4), Color.green.opacity(0.1)],
+												startPoint: .topLeading,
+												endPoint: .bottomTrailing
+											),
+											lineWidth: 3
+										)
+								)
+							
+							Image(systemName: "checkmark")
+								.font(.system(size: 50, weight: .bold))
+								.foregroundStyle(Color.green)
+						}
+						.shadow(color: Color.green.opacity(0.3), radius: 20, x: 0, y: 8)
 						
-						Image(systemName: "checkmark")
-							.font(.system(size: 28, weight: .bold))
-							.foregroundStyle(.white)
-					}
-					.onAppear {
-						withAnimation(.easeOut(duration: 1.5).repeatForever(autoreverses: false)) {
-							animateSuccess = true
+						VStack(spacing: 10) {
+							Text("Download Complete")
+								.font(.system(size: 26, weight: .bold, design: .rounded))
+								.foregroundStyle(.primary)
+							
+							Text("Choose what to do with \(app.name ?? "this app")")
+								.font(.system(size: 15, weight: .medium))
+								.foregroundStyle(.secondary)
+								.multilineTextAlignment(.center)
+								.padding(.horizontal, 30)
 						}
 					}
-					
-					VStack(spacing: 6) {
-						Text("Download Complete")
-							.font(.system(size: 22, weight: .bold, design: .rounded))
-							.foregroundStyle(.primary)
-						
-						Text("Choose an action for your app")
-							.font(.system(size: 14, weight: .medium))
-							.foregroundStyle(.secondary)
-					}
-				}
-				.padding(.top, 24)
-				.padding(.bottom, 20)
+					.padding(.top, 50)
+					.padding(.bottom, 30)
 				
 				// App info card - compact
 				appInfoCard
 					.padding(.horizontal, 20)
 					.padding(.bottom, 20)
 				
-				// Action buttons - modern style
-				VStack(spacing: 10) {
-					// Sign & Install button - primary action
-					Button {
-						dismiss()
-						DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-							showInstallPreview = true
-						}
-					} label: {
-						HStack(spacing: 10) {
-							Image(systemName: "arrow.down.app.fill")
-								.font(.system(size: 18, weight: .semibold))
-							Text("Sign & Install")
-								.font(.system(size: 16, weight: .bold))
-						}
-						.foregroundStyle(.white)
-						.frame(maxWidth: .infinity)
-						.padding(.vertical, 14)
-						.background(
-							LinearGradient(
-								colors: [Color.green, Color.green.opacity(0.85)],
-								startPoint: .leading,
-								endPoint: .trailing
+					// Action buttons
+					VStack(spacing: 14) {
+						// Sign & Install button
+						Button {
+							dismiss()
+							// Trigger signing and installation
+							DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+								showInstallPreview = true
+							}
+						} label: {
+							HStack(spacing: 12) {
+								Image(systemName: "checkmark.seal.fill")
+									.font(.system(size: 18, weight: .bold))
+								Text("Sign & Install")
+									.font(.system(size: 18, weight: .bold))
+							}
+							.foregroundStyle(.white)
+							.frame(maxWidth: .infinity)
+							.padding(.vertical, 18)
+							.background(
+								LinearGradient(
+									colors: [Color.green, Color.green.opacity(0.85)],
+									startPoint: .leading,
+									endPoint: .trailing
+								)
 							)
-						)
-						.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-						.shadow(color: Color.green.opacity(0.3), radius: 8, x: 0, y: 4)
-					}
-					
-					// Secondary actions row
-					HStack(spacing: 10) {
+							.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+							.shadow(color: Color.green.opacity(0.4), radius: 12, x: 0, y: 6)
+						}
+						
 						// Modify button
 						Button {
 							dismiss()
+							// Open signing view for modification
 							DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
 								NotificationCenter.default.post(
 									name: Notification.Name("Feather.openSigningView"),
@@ -126,40 +117,49 @@ struct InstallModifyDialogView: View {
 								)
 							}
 						} label: {
-							HStack(spacing: 6) {
+							HStack(spacing: 12) {
 								Image(systemName: "slider.horizontal.3")
-									.font(.system(size: 14, weight: .semibold))
+									.font(.system(size: 18, weight: .bold))
 								Text("Modify")
-									.font(.system(size: 14, weight: .semibold))
+									.font(.system(size: 18, weight: .bold))
 							}
 							.foregroundStyle(.white)
 							.frame(maxWidth: .infinity)
-							.padding(.vertical, 12)
-							.background(Color.accentColor)
-							.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+							.padding(.vertical, 18)
+							.background(
+								LinearGradient(
+									colors: [Color.accentColor, Color.accentColor.opacity(0.85)],
+									startPoint: .leading,
+									endPoint: .trailing
+								)
+							)
+							.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+							.shadow(color: Color.accentColor.opacity(0.4), radius: 12, x: 0, y: 6)
 						}
 						
-						// Later button
+						// Cancel button
 						Button {
 							dismiss()
 						} label: {
-							HStack(spacing: 6) {
-								Image(systemName: "clock")
-									.font(.system(size: 14, weight: .semibold))
-								Text("Later")
-									.font(.system(size: 14, weight: .semibold))
-							}
-							.foregroundStyle(.primary)
-							.frame(maxWidth: .infinity)
-							.padding(.vertical, 12)
-							.background(Color(.secondarySystemGroupedBackground))
-							.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+							Text("Cancel")
+								.font(.system(size: 17, weight: .semibold))
+								.foregroundStyle(.secondary)
+								.frame(maxWidth: .infinity)
+								.padding(.vertical, 16)
+								.background(
+									RoundedRectangle(cornerRadius: 16, style: .continuous)
+										.fill(Color(UIColor.tertiarySystemGroupedBackground))
+								)
 						}
 					}
+					.padding(.horizontal, 24)
+					.padding(.bottom, 30)
+					
+					Spacer()
 				}
-				.padding(.horizontal, 20)
-				.padding(.bottom, 24)
 			}
+			.navigationBarTitleDisplayMode(.inline)
+			.navigationBarHidden(true)
 		}
 		.sheet(isPresented: $showInstallPreview) {
 			InstallPreviewView(app: app, isSharing: false, fromLibraryTab: false)
@@ -226,11 +226,24 @@ struct InstallModifyDialogView: View {
 				.background(Color.green.opacity(0.15))
 				.clipShape(Capsule())
 		}
-		.padding(12)
+		.padding(18)
 		.background(
-			RoundedRectangle(cornerRadius: 14, style: .continuous)
-				.fill(Color(.secondarySystemGroupedBackground))
+			ZStack {
+				RoundedRectangle(cornerRadius: 18, style: .continuous)
+					.fill(Color(.secondarySystemGroupedBackground))
+				
+				RoundedRectangle(cornerRadius: 18, style: .continuous)
+					.stroke(
+						LinearGradient(
+							colors: [Color.green.opacity(0.3), Color.green.opacity(0.1)],
+							startPoint: .topLeading,
+							endPoint: .bottomTrailing
+						),
+						lineWidth: 2
+					)
+			}
 		)
+		.shadow(color: Color.green.opacity(0.15), radius: 12, x: 0, y: 6)
 	}
 	
 	private var iconPlaceholder: some View {

@@ -47,7 +47,6 @@ struct SourceDetailsView: View {
                 colors: [
                     dominantColor.opacity(0.25),
                     dominantColor.opacity(0.12),
-                    dominantColor.opacity(0.05),
                     Color(.systemBackground)
                 ],
                 startPoint: .topLeading,
@@ -454,7 +453,8 @@ struct SourceDetailsView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
-        .padding(.vertical, 8)
+        .padding(18)
+        .contentShape(Rectangle())
     }
     
     // MARK: - Empty Apps State

@@ -109,50 +109,32 @@ struct SourceAppsDetailView: View {
 						if let date = app.currentDate?.date {
 							modernInfoCard(title: .localized("Updated"), value: DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .none), icon: "calendar.circle.fill", color: .cyan)
 						}
-					}
-					
-					// Bundle ID as full-width card
-					if let bundleId = app.id {
-						HStack(spacing: 12) {
-							ZStack {
-								Circle()
-									.fill(Color.gray.opacity(0.15))
-									.frame(width: 36, height: 36)
-								Image(systemName: "barcode.viewfinder")
-									.font(.system(size: 16, weight: .semibold))
-									.foregroundStyle(.gray)
-							}
-							
-							VStack(alignment: .leading, spacing: 2) {
-								Text(.localized("Bundle ID"))
-									.font(.system(size: 11, weight: .medium))
-									.foregroundStyle(.secondary)
-								Text(bundleId)
-									.font(.system(size: 13, weight: .semibold))
-									.foregroundStyle(.primary)
-									.lineLimit(1)
-							}
-							
-							Spacer()
-							
-							Button {
-								UIPasteboard.general.string = bundleId
-							} label: {
-								Image(systemName: "doc.on.doc")
-									.font(.system(size: 14, weight: .medium))
-									.foregroundStyle(dominantColor)
+						
+							if let bundleId = app.id {
+								_infoRow(title: .localized("Bundle ID"), value: bundleId, icon: "barcode")
 							}
 						}
-						.padding(12)
+						.padding(.vertical, 12)
+						.padding(.horizontal, 16)
 						.background(
 							RoundedRectangle(cornerRadius: 14, style: .continuous)
 								.fill(Color(.secondarySystemGroupedBackground))
+								.overlay(
+									RoundedRectangle(cornerRadius: 14, style: .continuous)
+										.stroke(
+											LinearGradient(
+												colors: [dominantColor.opacity(0.3), dominantColor.opacity(0.1)],
+												startPoint: .topLeading,
+												endPoint: .bottomTrailing
+											),
+											lineWidth: 2
+										)
+								)
 						)
-						.padding(.top, 4)
+						.shadow(color: dominantColor.opacity(0.15), radius: 8, x: 0, y: 4)
 					}
-				}
-				
-				// Permissions section
+					
+					// Permissions section
 				if let appPermissions = app.appPermissions {
 					NBSection(.localized("Permissions")) {
 						NavigationLink(destination: PermissionsView(appPermissions: appPermissions, dominantColor: dominantColor)) {

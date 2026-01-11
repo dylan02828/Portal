@@ -164,24 +164,45 @@ extension DownloadManager: URLSessionDownloadDelegate {
 	static let downloadDidFailNotification = Notification.Name("Feather.downloadDidFail")
 	
 	func handlePachageFile(url: URL, dl: Download) throws {
-		// If download is from Sources view, show Install/Modify popup
-		if dl.fromSourcesView {
-			FR.handlePackageFile(url, download: dl) { err in
-				if err != nil {
-					HapticsManager.shared.error()
-					AppLogManager.shared.error("Failed to handle package file: \(err?.localizedDescription ?? "Unknown error")", category: "Download")
+		// ALWAYS show Install/Modify popup after successful download
+		let appName = url.deletingPathExtension().lastPathComponent
+		
+		FR.handlePackageFile(url, download: dl) { err in
+			if err != nil {
+				HapticsManager.shared.error()
+				AppLogManager.shared.error("Failed to handle package file: \(err?.localizedDescription ?? "Unknown error")", category: "Download")
+				
+				DispatchQueue.main.async {
+					// Post failure notification
+					NotificationCenter.default.post(
+						name: DownloadManager.importDidFailNotification,
+						object: nil,
+						userInfo: ["appName": appName, "error": err?.localizedDescription ?? "Unknown error", "downloadId": dl.id]
+					)
 					
-					DispatchQueue.main.async {
-						UIAlertController.showAlertWithOk(
-							title: .localized("Download Error"),
-							message: err?.localizedDescription ?? "Unknown error"
-						)
-					}
-				} else {
-					// Success - show Install/Modify popup for apps from Sources view
-					AppLogManager.shared.success("Successfully handled package file: \(url.lastPathComponent)", category: "Download")
+					UIAlertController.showAlertWithOk(
+						title: .localized("Download Error"),
+						message: err?.localizedDescription ?? "Unknown error"
+					)
+				}
+			} else {
+				HapticsManager.shared.success()
+				AppLogManager.shared.success("Successfully handled package file: \(url.lastPathComponent)", category: "Download")
+				
+				// Success - send notification if enabled
+				if UserDefaults.standard.bool(forKey: "Feather.notificationsEnabled") {
+					NotificationManager.shared.sendAppSignedNotification(appName: appName)
+				}
+				
+				DispatchQueue.main.async {
+					// Post success notification
+					NotificationCenter.default.post(
+						name: DownloadManager.importDidSucceedNotification,
+						object: nil,
+						userInfo: ["appName": appName, "downloadId": dl.id]
+					)
 					
-					// Post notification to show Install/Modify popup
+					// ALWAYS show Install/Modify popup after successful download
 					DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
 						NotificationCenter.default.post(
 							name: Notification.Name("Feather.showInstallModifyPopup"),
@@ -189,50 +210,12 @@ extension DownloadManager: URLSessionDownloadDelegate {
 						)
 					}
 				}
-				
-				DispatchQueue.main.async {
-					if let index = DownloadManager.shared.getDownloadIndex(by: dl.id) {
-						DownloadManager.shared.downloads.remove(at: index)
-						self._updateBackgroundAudioState()
-					}
-				}
 			}
-		} else {
-			// Library tab downloads - post notifications for UI updates
-			let appName = url.deletingPathExtension().lastPathComponent
 			
-			FR.handlePackageFile(url, download: dl) { err in
-				DispatchQueue.main.async {
-					if let err = err {
-						HapticsManager.shared.error()
-						AppLogManager.shared.error("Failed to handle package file: \(err.localizedDescription)", category: "Download")
-						
-						// Post failure notification
-						NotificationCenter.default.post(
-							name: DownloadManager.importDidFailNotification,
-							object: nil,
-							userInfo: ["appName": appName, "error": err.localizedDescription, "downloadId": dl.id]
-						)
-					} else {
-						HapticsManager.shared.success()
-						// Success - send notification if enabled
-						if UserDefaults.standard.bool(forKey: "Feather.notificationsEnabled") {
-							NotificationManager.shared.sendAppSignedNotification(appName: appName)
-						}
-						AppLogManager.shared.success("Successfully handled package file: \(url.lastPathComponent)", category: "Download")
-						
-						// Post success notification
-						NotificationCenter.default.post(
-							name: DownloadManager.importDidSucceedNotification,
-							object: nil,
-							userInfo: ["appName": appName, "downloadId": dl.id]
-						)
-					}
-					
-					if let index = DownloadManager.shared.getDownloadIndex(by: dl.id) {
-						DownloadManager.shared.downloads.remove(at: index)
-						self._updateBackgroundAudioState()
-					}
+			DispatchQueue.main.async {
+				if let index = DownloadManager.shared.getDownloadIndex(by: dl.id) {
+					DownloadManager.shared.downloads.remove(at: index)
+					self._updateBackgroundAudioState()
 				}
 			}
 		}
