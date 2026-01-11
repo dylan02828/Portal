@@ -12,6 +12,7 @@ extension Storage {
 		appIdentifier: String? = nil,
 		appVersion: String? = nil,
 		appIcon: String? = nil,
+		size: Int64? = nil,
 		completion: @escaping (Error?) -> Void
 	) {
 		DispatchQueue.main.async { [weak self] in
@@ -24,11 +25,25 @@ extension Storage {
 			
 			new.uuid = uuid
 			new.source = source
-			new.date = Date()
+			let now = Date()
+			new.date = now
+			new.dateAdded = now
 			new.identifier = appIdentifier ?? ""
 			new.name = appName ?? "Unknown"
 			new.icon = appIcon
 			new.version = appVersion ?? ""
+			
+			// Calculate file size if not provided
+			if let size = size {
+				new.size = size
+			} else {
+				// Try to get size from the IPA file if available
+				let ipaPath = self.fileManager.unsigned(uuid).appendingPathComponent("\(uuid).ipa")
+				if let attributes = try? FileManager.default.attributesOfItem(atPath: ipaPath.path),
+				   let fileSize = attributes[.size] as? UInt64 {
+					new.size = Int64(fileSize)
+				}
+			}
 			
 			do {
 				// Force save even if hasChanges might be false due to timing
