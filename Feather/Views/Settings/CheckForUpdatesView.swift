@@ -195,10 +195,16 @@ struct CheckForUpdatesView: View {
                                     .fill(Color.green.opacity(0.15))
                                     .frame(width: 56, height: 56)
                                 
-                                Image(systemName: "arrow.down.circle.fill")
-                                    .font(.system(size: 28))
-                                    .foregroundStyle(.green)
-                                    .symbolEffect(.pulse, options: .repeating)
+                                if #available(iOS 17.0, *) {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundStyle(.green)
+                                        .symbolEffect(.pulse, options: .repeating)
+                                } else {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundStyle(.green)
+                                }
                             }
                             
                             VStack(alignment: .leading, spacing: 4) {
@@ -397,7 +403,7 @@ struct CheckForUpdatesView: View {
                             Image(systemName: "chevron.right")
                                 .font(.caption.weight(.semibold))
                         }
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                     }
                 }
             }
@@ -433,88 +439,112 @@ struct CheckForUpdatesView: View {
                 .font(.title3.bold())
                 .padding(.horizontal, 4)
             
-            VStack(spacing: 0) {
-                ForEach(Array(updateManager.allReleases.dropFirst().prefix(5).enumerated()), id: \.element.id) { index, release in
-                    Button {
-                        if let url = URL(string: release.htmlUrl) {
-                            UIApplication.shared.open(url)
-                        }
-                        HapticsManager.shared.softImpact()
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 8) {
-                                    Text(release.tagName)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                    
-                                    if release.prerelease {
-                                        Text("BETA")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .foregroundStyle(.orange)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(
-                                                Capsule()
-                                                    .fill(Color.orange.opacity(0.15))
-                                            )
-                                    }
-                                }
-                                
-                                if let date = release.publishedAt {
-                                    Text(date.formatted(date: .abbreviated, time: .omitted))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 16)
-                    }
+            previousReleasesListContent
+        }
+    }
+    
+    private var previousReleasesListContent: some View {
+        let releases = Array(updateManager.allReleases.dropFirst().prefix(5))
+        
+        return VStack(spacing: 0) {
+            ForEach(Array(releases.enumerated()), id: \.element.id) { index, release in
+                previousReleaseRow(release: release, index: index, totalCount: releases.count)
+            }
+            
+            viewAllReleasesButton
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+        )
+    }
+    
+    private func previousReleaseRow(release: GitHubRelease, index: Int, totalCount: Int) -> some View {
+        VStack(spacing: 0) {
+            Button {
+                if let url = URL(string: release.htmlUrl) {
+                    UIApplication.shared.open(url)
+                }
+                HapticsManager.shared.softImpact()
+            } label: {
+                releaseRowContent(release: release)
+            }
+            
+            if index < totalCount - 1 {
+                Divider()
+                    .padding(.leading, 16)
+            }
+        }
+    }
+    
+    private func releaseRowContent(release: GitHubRelease) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(release.tagName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
                     
-                    if index < min(updateManager.allReleases.count - 2, 4) {
-                        Divider()
-                            .padding(.leading, 16)
+                    if release.prerelease {
+                        betaBadge
                     }
                 }
                 
-                // View all releases
-                if updateManager.allReleases.count > 6 {
-                    Divider()
-                        .padding(.leading, 16)
-                    
-                    Button {
-                        if let url = URL(string: "https://github.com/\(repoOwner)/\(repoName)/releases") {
-                            UIApplication.shared.open(url)
-                        }
-                        HapticsManager.shared.softImpact()
-                    } label: {
-                        HStack {
-                            Image(systemName: "list.bullet.rectangle")
-                                .foregroundStyle(.accentColor)
-                            Text("View All Releases")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.accentColor)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 16)
-                    }
+                if let date = release.publishedAt {
+                    Text(date.formatted(date: .abbreviated, time: .omitted))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+    }
+    
+    private var betaBadge: some View {
+        Text("BETA")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(.orange)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+                Capsule()
+                    .fill(Color.orange.opacity(0.15))
             )
+    }
+    
+    @ViewBuilder
+    private var viewAllReleasesButton: some View {
+        if updateManager.allReleases.count > 6 {
+            Divider()
+                .padding(.leading, 16)
+            
+            Button {
+                if let url = URL(string: "https://github.com/\(repoOwner)/\(repoName)/releases") {
+                    UIApplication.shared.open(url)
+                }
+                HapticsManager.shared.softImpact()
+            } label: {
+                HStack {
+                    Image(systemName: "list.bullet.rectangle")
+                        .foregroundStyle(Color.accentColor)
+                    Text("View All Releases")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color.accentColor)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 14)
+                .padding(.horizontal, 16)
+            }
         }
     }
     
@@ -652,7 +682,7 @@ struct FullReleaseNotesView: View {
                             ForEach(release.assets) { asset in
                                 HStack {
                                     Image(systemName: "doc.zipper")
-                                        .foregroundStyle(.accentColor)
+                                        .foregroundStyle(Color.accentColor)
                                     
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(asset.name)
@@ -671,7 +701,7 @@ struct FullReleaseNotesView: View {
                                     } label: {
                                         Image(systemName: "arrow.down.circle.fill")
                                             .font(.title2)
-                                            .foregroundStyle(.accentColor)
+                                            .foregroundStyle(Color.accentColor)
                                     }
                                 }
                                 .padding(12)

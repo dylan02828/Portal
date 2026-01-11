@@ -1068,7 +1068,7 @@ struct DeveloperSecurityView: View {
         }
         .navigationTitle("Security Settings")
         .sheet(isPresented: $showChangePasscode) {
-            PasscodeSetupView(onComplete: { _ in })
+            ModernPasscodeSetupView(onComplete: { _ in })
         }
         .alert("Remove Passcode", isPresented: $showRemovePasscode) {
             Button("Cancel", role: .cancel) { }
