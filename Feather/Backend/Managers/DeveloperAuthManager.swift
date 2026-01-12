@@ -31,7 +31,7 @@ final class DeveloperAuthManager: ObservableObject {
     private let validDeveloperTokens: Set<String> = [
         "FEATHER-DEV-2024-ALPHA",
         "FEATHER-DEV-2024-BETA",
-        "INTERNAL_DEV"
+        "INTERNAL-DEV",
         "PORTAL-INTERNAL-DEV"
     ]
     
