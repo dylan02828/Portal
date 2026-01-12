@@ -1088,7 +1088,7 @@ struct UpdateFinishedView: View {
                 }
             }
             .sheet(isPresented: $showShareSheet) {
-                ShareSheet(items: [ipaURL])
+                ShareSheet(urls: [ipaURL])
             }
             .onAppear {
                 withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2)) {
