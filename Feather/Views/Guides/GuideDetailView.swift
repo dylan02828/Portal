@@ -1922,7 +1922,17 @@ struct GlassmorphicLanguageButton: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(isSelected ? Color.green.opacity(0.15) : .ultraThinMaterial)
+            .background {
+                if isSelected {
+                    Color.green.opacity(0.15)
+                } else {
+                    if #available(iOS 15.0, *) {
+                        Material.ultraThin
+                    } else {
+                        Color(.systemBackground)
+                    }
+                }
+            }
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
