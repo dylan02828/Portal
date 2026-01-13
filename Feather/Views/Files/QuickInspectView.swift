@@ -193,7 +193,7 @@ struct QuickInspectView: View {
     private func loadFileInformation() async {
         isLoading = true
         
-        await Task.detached {
+        Task.detached {
             let path = file.url.path
             
             // Get basic file info
