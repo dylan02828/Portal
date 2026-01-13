@@ -126,43 +126,53 @@ struct GuideDetailView: View {
         .task {
             await loadContent()
         }
-        .confirmationDialog("AI Actions", isPresented: $showingAIActionSheet, titleVisibility: .visible) {
-            ForEach(AIAction.allCases) { action in
-                Button(action.displayName) {
+        .sheet(isPresented: $showingAIActionSheet) {
+            AIActionsSheet(
+                isPresented: $showingAIActionSheet,
+                isAIAvailable: isAIAvailable,
+                onActionSelected: { action in
                     if action == .describeGuide {
-                        showingDescribeGuideInput = true
+                        showingAIActionSheet = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showingDescribeGuideInput = true
+                        }
                     } else {
+                        showingAIActionSheet = false
                         Task {
                             await processAIAction(action)
                         }
                     }
                 }
-            }
-            Button("Cancel", role: .cancel) {}
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
-        .alert("Describe Guide", isPresented: $showingDescribeGuideInput) {
-            TextField("Enter your instruction...", text: $describeGuideInstruction)
-            Button("Cancel", role: .cancel) {
-                describeGuideInstruction = ""
-            }
-            Button("Process") {
-                Task {
-                    await processAIAction(.describeGuide, customInstruction: describeGuideInstruction)
-                    describeGuideInstruction = ""
+        .sheet(isPresented: $showingDescribeGuideInput) {
+            CustomPromptSheet(
+                isPresented: $showingDescribeGuideInput,
+                instruction: $describeGuideInstruction,
+                onSubmit: {
+                    showingDescribeGuideInput = false
+                    Task {
+                        await processAIAction(.describeGuide, customInstruction: describeGuideInstruction)
+                        describeGuideInstruction = ""
+                    }
                 }
-            }
-        } message: {
-            Text("Enter a custom instruction describing what you want done with the guide.")
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
-        .alert("AI Error", isPresented: Binding(
+        .sheet(isPresented: Binding(
             get: { aiError != nil },
             set: { if !$0 { aiError = nil } }
         )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            if let error = aiError {
-                Text(error)
-            }
+            AIErrorSheet(
+                error: aiError ?? "",
+                isAIAvailable: isAIAvailable,
+                onDismiss: { aiError = nil }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
     }
     
@@ -605,5 +615,335 @@ struct GuideDetailView: View {
         }
         
         return result
+    }
+}
+
+// MARK: - AI Actions Sheet
+struct AIActionsSheet: View {
+    @Binding var isPresented: Bool
+    let isAIAvailable: Bool
+    let onActionSelected: (AIAction) -> Void
+    
+    private let columns = [
+        GridItem(.flexible()),
+        GridItem(.flexible())
+    ]
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Header
+                    VStack(spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.purple, .pink],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 60, height: 60)
+                            Image(systemName: "sparkles")
+                                .font(.title)
+                                .foregroundStyle(.white)
+                        }
+                        
+                        Text("AI Actions")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Text("Choose how you want AI to process this guide")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top)
+                    
+                    // Actions Grid
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(AIAction.allCases) { action in
+                            AIActionButton(action: action) {
+                                HapticsManager.shared.softImpact()
+                                onActionSelected(action)
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    if !isAIAvailable {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text("Configure OpenRouter API key in Settings → Guides")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(10)
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.bottom)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isPresented = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct AIActionButton: View {
+    let action: AIAction
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: action.gradientColors,
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: action.systemImage)
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                }
+                
+                VStack(spacing: 2) {
+                    Text(action.displayName)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    
+                    Text(action.description)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground))
+            .cornerRadius(16)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Custom Prompt Sheet
+struct CustomPromptSheet: View {
+    @Binding var isPresented: Bool
+    @Binding var instruction: String
+    let onSubmit: () -> Void
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.purple, .indigo],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 60, height: 60)
+                        Image(systemName: "text.bubble")
+                            .font(.title)
+                            .foregroundStyle(.white)
+                    }
+                    
+                    Text("Custom Prompt")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("Enter your own instructions for the AI")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top)
+                
+                // Text Input
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your instruction")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                    
+                    TextEditor(text: $instruction)
+                        .frame(minHeight: 120)
+                        .padding(12)
+                        .background(Color(.secondarySystemGroupedBackground))
+                        .cornerRadius(12)
+                        .focused($isFocused)
+                }
+                .padding(.horizontal)
+                
+                // Submit Button
+                Button {
+                    onSubmit()
+                } label: {
+                    HStack {
+                        Image(systemName: "sparkles")
+                        Text("Process with AI")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: instruction.isEmpty ? [.gray, .secondary] : [.purple, .pink],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .foregroundStyle(.white)
+                    .cornerRadius(12)
+                }
+                .disabled(instruction.isEmpty)
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        instruction = ""
+                        isPresented = false
+                    }
+                }
+            }
+            .onAppear {
+                isFocused = true
+            }
+        }
+    }
+}
+
+// MARK: - AI Error Sheet
+struct AIErrorSheet: View {
+    let error: String
+    let isAIAvailable: Bool
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.orange, .red],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 70, height: 70)
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.title)
+                            .foregroundStyle(.white)
+                    }
+                    
+                    Text("AI Unavailable")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                }
+                .padding(.top, 32)
+                
+                // Error Message
+                VStack(spacing: 16) {
+                    Text(error)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    if !isAIAvailable {
+                        VStack(spacing: 12) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "1.circle.fill")
+                                    .foregroundStyle(.blue)
+                                Text("Go to Settings → Guides")
+                                    .font(.subheadline)
+                                Spacer()
+                            }
+                            
+                            HStack(spacing: 12) {
+                                Image(systemName: "2.circle.fill")
+                                    .foregroundStyle(.blue)
+                                Text("Add your OpenRouter API key")
+                                    .font(.subheadline)
+                                Spacer()
+                            }
+                            
+                            HStack(spacing: 12) {
+                                Image(systemName: "3.circle.fill")
+                                    .foregroundStyle(.blue)
+                                Text("Select an AI model")
+                                    .font(.subheadline)
+                                Spacer()
+                            }
+                        }
+                        .padding()
+                        .background(Color(.secondarySystemGroupedBackground))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                    }
+                }
+                
+                Spacer()
+                
+                // Dismiss Button
+                Button {
+                    onDismiss()
+                } label: {
+                    Text("Got it")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundStyle(.white)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                .padding(.bottom)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        onDismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
     }
 }

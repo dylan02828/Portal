@@ -19,6 +19,10 @@ enum AIAction: String, CaseIterable, Identifiable {
     case simplify = "simplify"
     case translate = "translate"
     case explain = "explain"
+    case summarize = "summarize"
+    case keyPoints = "key_points"
+    case stepByStep = "step_by_step"
+    case proofread = "proofread"
     case describeGuide = "describe_guide"
     
     var id: String { rawValue }
@@ -31,8 +35,16 @@ enum AIAction: String, CaseIterable, Identifiable {
             return "Translate"
         case .explain:
             return "Explain"
+        case .summarize:
+            return "Summarize"
+        case .keyPoints:
+            return "Key Points"
+        case .stepByStep:
+            return "Step by Step"
+        case .proofread:
+            return "Proofread"
         case .describeGuide:
-            return "Describe Guide"
+            return "Custom Prompt"
         }
     }
     
@@ -44,8 +56,58 @@ enum AIAction: String, CaseIterable, Identifiable {
             return "globe"
         case .explain:
             return "lightbulb"
+        case .summarize:
+            return "doc.text.below.ecg"
+        case .keyPoints:
+            return "list.bullet.rectangle"
+        case .stepByStep:
+            return "list.number"
+        case .proofread:
+            return "checkmark.circle"
         case .describeGuide:
             return "text.bubble"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .simplify:
+            return "Make the text easier to understand"
+        case .translate:
+            return "Translate to another language"
+        case .explain:
+            return "Explain concepts in detail"
+        case .summarize:
+            return "Create a brief summary"
+        case .keyPoints:
+            return "Extract the main points"
+        case .stepByStep:
+            return "Convert to step-by-step instructions"
+        case .proofread:
+            return "Check for errors and improve clarity"
+        case .describeGuide:
+            return "Enter your own instructions"
+        }
+    }
+    
+    var gradientColors: [Color] {
+        switch self {
+        case .simplify:
+            return [Color.blue, Color.cyan]
+        case .translate:
+            return [Color.green, Color.mint]
+        case .explain:
+            return [Color.yellow, Color.orange]
+        case .summarize:
+            return [Color.purple, Color.pink]
+        case .keyPoints:
+            return [Color.indigo, Color.blue]
+        case .stepByStep:
+            return [Color.teal, Color.green]
+        case .proofread:
+            return [Color.red, Color.orange]
+        case .describeGuide:
+            return [Color.purple, Color.indigo]
         }
     }
 }
@@ -69,10 +131,12 @@ final class GuideAISettingsManager: ObservableObject {
     
     private let userDefaultsKey = "Feather.guideAIPreferences"
     private let openRouterModelKey = "Feather.openRouterModel"
+    private let customModelsKey = "Feather.customOpenRouterModels"
     
     @Published var guidePreferences: [String: GuideAIPreference] = [:]
     @Published var openRouterModel: String = "openai/gpt-4o-mini"
     @Published var hasAPIKey: Bool = false
+    @Published var customModels: [String] = []
     
     static let defaultModels: [String] = [
         "openai/gpt-4o-mini",
@@ -80,13 +144,30 @@ final class GuideAISettingsManager: ObservableObject {
         "anthropic/claude-3.5-sonnet",
         "anthropic/claude-3-haiku",
         "google/gemini-pro-1.5",
+        "google/gemini-2.0-flash-exp:free",
         "meta-llama/llama-3.1-70b-instruct",
-        "mistralai/mistral-large"
+        "mistralai/mistral-large",
+        "deepseek/deepseek-chat"
     ]
+    
+    var allModels: [String] {
+        var models = Self.defaultModels
+        for customModel in customModels {
+            if !models.contains(customModel) {
+                models.append(customModel)
+            }
+        }
+        // Ensure current model is in the list
+        if !models.contains(openRouterModel) {
+            models.append(openRouterModel)
+        }
+        return models
+    }
     
     private init() {
         loadPreferences()
         loadOpenRouterModel()
+        loadCustomModels()
         checkAPIKeyExists()
     }
     
@@ -109,9 +190,36 @@ final class GuideAISettingsManager: ObservableObject {
         }
     }
     
+    private func loadCustomModels() {
+        if let models = UserDefaults.standard.stringArray(forKey: customModelsKey) {
+            customModels = models
+        }
+    }
+    
+    private func saveCustomModels() {
+        UserDefaults.standard.set(customModels, forKey: customModelsKey)
+    }
+    
     func saveOpenRouterModel(_ model: String) {
         openRouterModel = model
         UserDefaults.standard.set(model, forKey: openRouterModelKey)
+        
+        // Add to custom models if not in default list
+        if !Self.defaultModels.contains(model) && !customModels.contains(model) {
+            customModels.append(model)
+            saveCustomModels()
+        }
+    }
+    
+    func removeCustomModel(_ model: String) {
+        customModels.removeAll { $0 == model }
+        saveCustomModels()
+        
+        // If current model was removed, switch to default
+        if openRouterModel == model {
+            openRouterModel = Self.defaultModels.first ?? "openai/gpt-4o-mini"
+            UserDefaults.standard.set(openRouterModel, forKey: openRouterModelKey)
+        }
     }
     
     func checkAPIKeyExists() {
