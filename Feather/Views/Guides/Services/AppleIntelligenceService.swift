@@ -243,6 +243,8 @@ class WritingToolsViewController: UIViewController {
             return "Use Writing Tools to translate this text. Select the text and use the translation features."
         case .explain:
             return "Use Writing Tools to explain or expand on this text. Select the text and choose 'Rewrite' options."
+        case .proofread:
+            return "Use Writing Tools to proofread this text. Select the text and choose 'Proofread' to fix grammar and improve clarity."
         case .describeGuide:
             if let instruction = customInstruction {
                 return "Custom instruction: \(instruction)\n\nUse Writing Tools to process the text according to this instruction."

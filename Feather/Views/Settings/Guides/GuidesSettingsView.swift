@@ -212,7 +212,7 @@ struct GuidesSettingsView: View {
                     }
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(customModelInput.isEmpty ? .secondary : .blue)
+                        .foregroundStyle(customModelInput.isEmpty ? Color.secondary : Color.blue)
                 }
                 .disabled(customModelInput.isEmpty)
             }
