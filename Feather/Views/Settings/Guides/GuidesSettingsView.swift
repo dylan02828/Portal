@@ -2,7 +2,7 @@ import SwiftUI
 import NimbleViews
 
 struct GuidesSettingsView: View {
-    @StateObject private var settingsManager = GuideAISettingsManager.shared
+    @ObservedObject private var settingsManager = GuideAISettingsManager.shared
     @State private var apiKeyInput: String = ""
     @State private var customModelInput: String = ""
     @State private var showingAPIKeyAlert = false
@@ -12,12 +12,12 @@ struct GuidesSettingsView: View {
     @State private var guidesError: String?
     
     var body: some View {
-        NBNavigationView(.localized("Guides Settings"), displayMode: .inline) {
-            Form {
-                openRouterSection
-                perGuideSection
-            }
+        Form {
+            openRouterSection
+            perGuideSection
         }
+        .navigationTitle(.localized("Guides"))
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadGuides()
         }

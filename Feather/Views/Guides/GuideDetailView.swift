@@ -24,7 +24,7 @@ struct GuideDetailView: View {
     @State private var showingAIOutput = false
     @State private var aiEngineUsed: AIEngine?
     @State private var didFallback = false
-    @StateObject private var aiSettingsManager = GuideAISettingsManager.shared
+    @ObservedObject private var aiSettingsManager = GuideAISettingsManager.shared
     
     var accentColor: Color {
         if colorType == "gradient" {
