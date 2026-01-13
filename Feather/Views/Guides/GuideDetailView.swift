@@ -1927,7 +1927,7 @@ struct GlassmorphicLanguageButton: View {
                     Color.green.opacity(0.15)
                 } else {
                     if #available(iOS 15.0, *) {
-                        Material.ultraThin
+                        Color.clear.background(.ultraThinMaterial)
                     } else {
                         Color(.systemBackground)
                     }
