@@ -179,6 +179,16 @@ extension SourceAppsTableRepresentableView { class Coordinator: NSObject, UITabl
 				return sortAscending ? $0 < $1 : $0 > $1
 			})
 			return sorted
+		case .size:
+			_groupedAppsByDate = [:]
+			_groupedAppsByNameFirstLetter = [:]
+			_sortedSectionTitles = []
+			let sorted = filtered.sorted {
+				let s1 = $0.app.size ?? 0
+				let s2 = $1.app.size ?? 0
+				return sortAscending ? (s1 < s2) : (s1 > s2)
+			}
+			return sorted
 		}
 	}
 	
@@ -195,14 +205,14 @@ extension SourceAppsTableRepresentableView { class Coordinator: NSObject, UITabl
 	
 	func numberOfSections(in tableView: UITableView) -> Int {
 		switch sortOption {
-		case .default: 1
+		case .default, .size: 1
 		case .name, .date: _sortedSectionTitles.count
 		}
 	}
 	
 	func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
 		switch sortOption {
-		case .default: _sortedApps.count
+		case .default, .size: _sortedApps.count
 		case .name: _groupedAppsByNameFirstLetter[_sortedSectionTitles[section]]?.count ?? 0
 		case .date: _groupedAppsByDate[_sortedSectionTitles[section]]?.count ?? 0
 		}
@@ -212,7 +222,7 @@ extension SourceAppsTableRepresentableView { class Coordinator: NSObject, UITabl
 		let cell = tableView.dequeueReusableCell(withIdentifier: "AppCell", for: indexPath)
 		let entry: (source: ASRepository, app: ASRepository.App)
 		switch sortOption {
-		case .default: entry = _sortedApps[indexPath.row]
+		case .default, .size: entry = _sortedApps[indexPath.row]
 		case .name: entry = _groupedAppsByNameFirstLetter[_sortedSectionTitles[indexPath.section]]?[indexPath.row] ?? _sortedApps[indexPath.row]
 		case .date: entry = _groupedAppsByDate[_sortedSectionTitles[indexPath.section]]?[indexPath.row] ?? _sortedApps[indexPath.row]
 		}
@@ -229,7 +239,7 @@ extension SourceAppsTableRepresentableView { class Coordinator: NSObject, UITabl
 			
 			let entry: (source: ASRepository, app: ASRepository.App)
 			switch sortOption {
-			case .default: entry = _sortedApps[indexPath.row]
+			case .default, .size: entry = _sortedApps[indexPath.row]
 			case .name: entry = _groupedAppsByNameFirstLetter[_sortedSectionTitles[indexPath.section]]?[indexPath.row] ?? _sortedApps[indexPath.row]
 			case .date: entry = _groupedAppsByDate[_sortedSectionTitles[indexPath.section]]?[indexPath.row] ?? _sortedApps[indexPath.row]
 			}
@@ -243,7 +253,7 @@ extension SourceAppsTableRepresentableView { class Coordinator: NSObject, UITabl
 		let title: String
 		
 		switch sortOption {
-		case .default: title = .localized("%lld Apps", arguments: _sortedApps.count)
+		case .default, .size: title = .localized("%lld Apps", arguments: _sortedApps.count)
 		case .name, .date: title = _sortedSectionTitles[section]
 		}
 		
@@ -270,7 +280,7 @@ extension SourceAppsTableRepresentableView { class Coordinator: NSObject, UITabl
 	func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
 		let entry: (source: ASRepository, app: ASRepository.App)
 		switch sortOption {
-		case .default: entry = _sortedApps[indexPath.row]
+		case .default, .size: entry = _sortedApps[indexPath.row]
 		case .name: entry = _groupedAppsByNameFirstLetter[_sortedSectionTitles[indexPath.section]]?[indexPath.row] ?? _sortedApps[indexPath.row]
 		case .date: entry = _groupedAppsByDate[_sortedSectionTitles[indexPath.section]]?[indexPath.row] ?? _sortedApps[indexPath.row]
 		}
