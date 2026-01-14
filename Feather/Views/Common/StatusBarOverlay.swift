@@ -27,6 +27,18 @@ struct StatusBarOverlay: View {
     @AppStorage("statusBar.borderWidth") private var borderWidth: Double = 0
     @AppStorage("statusBar.borderColor") private var borderColorHex: String = "#007AFF"
     
+    // Gradient Text
+    @AppStorage("statusBar.useGradientText") private var useGradientText: Bool = false
+    @AppStorage("statusBar.gradientStartColor") private var gradientStartColorHex: String = "#007AFF"
+    @AppStorage("statusBar.gradientEndColor") private var gradientEndColorHex: String = "#5856D6"
+    @AppStorage("statusBar.gradientAngle") private var gradientAngle: Double = 0
+    
+    // Glow Effect
+    @AppStorage("statusBar.enableGlow") private var enableGlow: Bool = false
+    @AppStorage("statusBar.glowColor") private var glowColorHex: String = "#007AFF"
+    @AppStorage("statusBar.glowRadius") private var glowRadius: Double = 4
+    @AppStorage("statusBar.glowIntensity") private var glowIntensity: Double = 0.5
+    
     // Text Layout
     @AppStorage("statusBar.textAlignment") private var textAlignment: String = "center"
     @AppStorage("statusBar.textLeftPadding") private var textLeftPadding: Double = 0
@@ -92,6 +104,24 @@ struct StatusBarOverlay: View {
         case "serif": return .serif
         default: return .default
         }
+    }
+    
+    // Gradient for text
+    private var textGradient: LinearGradient {
+        let angle = Angle(degrees: gradientAngle)
+        let startPoint = UnitPoint(
+            x: 0.5 + 0.5 * cos(angle.radians - .pi / 2),
+            y: 0.5 + 0.5 * sin(angle.radians - .pi / 2)
+        )
+        let endPoint = UnitPoint(
+            x: 0.5 - 0.5 * cos(angle.radians - .pi / 2),
+            y: 0.5 - 0.5 * sin(angle.radians - .pi / 2)
+        )
+        return LinearGradient(
+            colors: [Color(hex: gradientStartColorHex), Color(hex: gradientEndColorHex)],
+            startPoint: startPoint,
+            endPoint: endPoint
+        )
     }
     
     private var selectedAlignment: Alignment {
@@ -207,10 +237,7 @@ struct StatusBarOverlay: View {
                                     Spacer()
                                 }
                                 
-                                Text(timeString)
-                                    .font(.system(size: fontSize, weight: isBold ? .bold : .regular, design: selectedFontDesign))
-                                    .foregroundStyle(timeAccentColored ? SwiftUI.Color(hex: colorHex) : SwiftUI.Color(hex: timeColorHex))
-                                    .lineLimit(1)
+                                styledText(timeString)
                                     .animation(timeAnimation, value: timeString)
                                     .padding(.leading, timeLeftPadding)
                                     .padding(.trailing, timeRightPadding)
@@ -230,10 +257,7 @@ struct StatusBarOverlay: View {
                                     Spacer()
                                 }
                                 
-                                Text(customText)
-                                    .font(.system(size: fontSize, weight: isBold ? .bold : .regular, design: selectedFontDesign))
-                                    .foregroundStyle(SwiftUI.Color(hex: colorHex))
-                                    .lineLimit(1)
+                                styledText(customText)
                                     .padding(.leading, textLeftPadding)
                                     .padding(.trailing, textRightPadding)
                                     .padding(.top, textTopPadding)
@@ -252,9 +276,7 @@ struct StatusBarOverlay: View {
                                     Spacer()
                                 }
                                 
-                                Image(systemName: sfSymbol)
-                                    .font(.system(size: fontSize, weight: isBold ? .bold : .regular, design: selectedFontDesign))
-                                    .foregroundStyle(SwiftUI.Color(hex: colorHex))
+                                styledSymbol(sfSymbol)
                                     .padding(.leading, sfSymbolLeftPadding)
                                     .padding(.trailing, sfSymbolRightPadding)
                                     .padding(.top, sfSymbolTopPadding)
@@ -368,21 +390,75 @@ struct StatusBarOverlay: View {
             EmptyView()
         case .text:
             if !customText.isEmpty {
-                Text(customText)
-                    .font(.system(size: fontSize, weight: isBold ? .bold : .regular, design: selectedFontDesign))
-                    .foregroundStyle(widgetColor)
-                    .lineLimit(1)
+                styledText(customText)
             }
         case .sfSymbol:
             if !sfSymbol.isEmpty {
-                Image(systemName: sfSymbol)
-                    .font(.system(size: fontSize, weight: isBold ? .bold : .regular, design: selectedFontDesign))
-                    .foregroundStyle(widgetColor)
+                styledSymbol(sfSymbol)
             }
         case .battery:
             SystemBatteryView()
                 .foregroundStyle(widgetColor)
                 .frame(width: 60)
+        }
+    }
+    
+    // MARK: - Styled Text with Gradient and Glow
+    @ViewBuilder
+    private func styledText(_ text: String) -> some View {
+        let baseText = Text(text)
+            .font(.system(size: fontSize, weight: isBold ? .bold : .regular, design: selectedFontDesign))
+            .lineLimit(1)
+        
+        if useGradientText {
+            if enableGlow {
+                baseText
+                    .foregroundStyle(textGradient)
+                    .shadow(color: Color(hex: glowColorHex).opacity(glowIntensity), radius: glowRadius, x: 0, y: 0)
+                    .shadow(color: Color(hex: glowColorHex).opacity(glowIntensity * 0.5), radius: glowRadius * 1.5, x: 0, y: 0)
+            } else {
+                baseText
+                    .foregroundStyle(textGradient)
+            }
+        } else {
+            if enableGlow {
+                baseText
+                    .foregroundStyle(SwiftUI.Color(hex: colorHex))
+                    .shadow(color: Color(hex: glowColorHex).opacity(glowIntensity), radius: glowRadius, x: 0, y: 0)
+                    .shadow(color: Color(hex: glowColorHex).opacity(glowIntensity * 0.5), radius: glowRadius * 1.5, x: 0, y: 0)
+            } else {
+                baseText
+                    .foregroundStyle(SwiftUI.Color(hex: colorHex))
+            }
+        }
+    }
+    
+    // MARK: - Styled Symbol with Gradient and Glow
+    @ViewBuilder
+    private func styledSymbol(_ symbolName: String) -> some View {
+        let baseSymbol = Image(systemName: symbolName)
+            .font(.system(size: fontSize, weight: isBold ? .bold : .regular, design: selectedFontDesign))
+        
+        if useGradientText {
+            if enableGlow {
+                baseSymbol
+                    .foregroundStyle(textGradient)
+                    .shadow(color: Color(hex: glowColorHex).opacity(glowIntensity), radius: glowRadius, x: 0, y: 0)
+                    .shadow(color: Color(hex: glowColorHex).opacity(glowIntensity * 0.5), radius: glowRadius * 1.5, x: 0, y: 0)
+            } else {
+                baseSymbol
+                    .foregroundStyle(textGradient)
+            }
+        } else {
+            if enableGlow {
+                baseSymbol
+                    .foregroundStyle(SwiftUI.Color(hex: colorHex))
+                    .shadow(color: Color(hex: glowColorHex).opacity(glowIntensity), radius: glowRadius, x: 0, y: 0)
+                    .shadow(color: Color(hex: glowColorHex).opacity(glowIntensity * 0.5), radius: glowRadius * 1.5, x: 0, y: 0)
+            } else {
+                baseSymbol
+                    .foregroundStyle(SwiftUI.Color(hex: colorHex))
+            }
         }
     }
 }

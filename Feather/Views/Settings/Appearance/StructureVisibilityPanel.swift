@@ -15,13 +15,14 @@ struct StructureVisibilityPanel: View {
         if viewModel.showSFSymbol { count += 1 }
         if viewModel.showTime { count += 1 }
         if viewModel.showBattery { count += 1 }
+        if viewModel.showDate { count += 1 }
         return count
     }
     
     var body: some View {
         List {
             Section {
-                Toggle("Show Custom Text", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.showCustomText },
                     set: { newValue in
                         if newValue && enabledWidgetCount >= 2 {
@@ -33,9 +34,11 @@ struct StructureVisibilityPanel: View {
                             HapticsManager.shared.softImpact()
                         }
                     }
-                ))
+                )) {
+                    Label("Custom Text", systemImage: "textformat")
+                }
                 
-                Toggle("Show SF Symbol", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.showSFSymbol },
                     set: { newValue in
                         if newValue && enabledWidgetCount >= 2 {
@@ -47,9 +50,11 @@ struct StructureVisibilityPanel: View {
                             HapticsManager.shared.softImpact()
                         }
                     }
-                ))
+                )) {
+                    Label("SF Symbol", systemImage: "star.fill")
+                }
                 
-                Toggle("Show Time", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { viewModel.showTime },
                     set: { newValue in
                         if newValue && enabledWidgetCount >= 2 {
@@ -61,9 +66,27 @@ struct StructureVisibilityPanel: View {
                             HapticsManager.shared.softImpact()
                         }
                     }
-                ))
+                )) {
+                    Label("Time", systemImage: "clock.fill")
+                }
                 
-                Toggle("Show Battery", isOn: Binding(
+                Toggle(isOn: Binding(
+                    get: { viewModel.showDate },
+                    set: { newValue in
+                        if newValue && enabledWidgetCount >= 2 {
+                            attemptedWidget = "Date"
+                            showLimitReachedAlert = true
+                            HapticsManager.shared.error()
+                        } else {
+                            viewModel.showDate = newValue
+                            HapticsManager.shared.softImpact()
+                        }
+                    }
+                )) {
+                    Label("Date", systemImage: "calendar")
+                }
+                
+                Toggle(isOn: Binding(
                     get: { viewModel.showBattery },
                     set: { newValue in
                         if newValue && enabledWidgetCount >= 2 {
@@ -75,9 +98,11 @@ struct StructureVisibilityPanel: View {
                             HapticsManager.shared.softImpact()
                         }
                     }
-                ))
+                )) {
+                    Label("Battery", systemImage: "battery.100")
+                }
             } header: {
-                Text("Visibility")
+                Label("Visibility", systemImage: "eye")
             } footer: {
                 Text("You can enable up to 2 status bar options at a time. Currently \(enabledWidgetCount) of 2 enabled.")
                     .foregroundStyle(enabledWidgetCount >= 2 ? .orange : .secondary)

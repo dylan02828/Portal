@@ -13,6 +13,9 @@ struct ExtendedTabbarView: View {
 	@AppStorage("Feather.tabBar.library") private var showLibrary = true
 	@AppStorage("Feather.tabBar.files") private var showFiles = true
 	@AppStorage("Feather.tabBar.guides") private var showGuides = true
+	@AppStorage("Feather.tabBar.order") private var tabOrder: String = "home,guides,library,files,settings"
+	@AppStorage("Feather.tabBar.hideLabels") private var hideTabLabels = false
+	@AppStorage("Feather.tabBar.defaultTab") private var defaultTab: String = "home"
 	@AppStorage("Feather.certificateExperience") private var certificateExperience: String = "Developer"
 	@AppStorage("forceShowGuides") private var forceShowGuides = false
 	@StateObject var viewModel = SourcesViewModel.shared
@@ -20,6 +23,8 @@ struct ExtendedTabbarView: View {
 	@State private var _isAddingPresenting = false
 	@State private var showInstallModifySheet = false
 	@State private var appToInstall: (any AppInfoPresentable)?
+	@State private var selectedTab: TabEnum = .home
+	@State private var hasSetInitialTab = false
 	
 	@FetchRequest(
 		entity: AltSource.entity(),
@@ -27,28 +32,69 @@ struct ExtendedTabbarView: View {
 		animation: .easeInOut(duration: 0.35)
 	) private var _sources: FetchedResults<AltSource>
 	
+	private var orderedTabIds: [String] {
+		tabOrder.split(separator: ",").map(String.init)
+	}
+	
 	var visibleTabs: [TabEnum] {
-		var tabs: [TabEnum] = []
-		if showHome { tabs.append(.home) }
-		if showLibrary { tabs.append(.library) }
-		if showFiles { tabs.append(.files) }
+		var enabledTabs: [TabEnum] = []
+		if showHome { enabledTabs.append(.home) }
+		if showLibrary { enabledTabs.append(.library) }
+		if showFiles { enabledTabs.append(.files) }
 		
 		// Only show Guides if:
 		// 1. forceShowGuides is enabled (set by Enterprise certificate)
 		// 2. OR certificate experience is Enterprise
 		if showGuides && (forceShowGuides || certificateExperience == "Enterprise") {
-			tabs.append(.guides)
+			enabledTabs.append(.guides)
 		}
 		
-		tabs.append(.settings) // Always show settings
-		return tabs
+		enabledTabs.append(.settings) // Always show settings
+		
+		// Sort tabs based on saved order
+		var sortedTabs: [TabEnum] = []
+		for tabId in orderedTabIds {
+			if let tab = TabEnum(rawValue: tabId), enabledTabs.contains(tab) {
+				sortedTabs.append(tab)
+			}
+		}
+		
+		// Add any enabled tabs that weren't in the order (fallback)
+		for tab in enabledTabs {
+			if !sortedTabs.contains(tab) {
+				if tab == .settings {
+					sortedTabs.append(tab) // Settings always last
+				} else {
+					sortedTabs.insert(tab, at: max(0, sortedTabs.count - 1))
+				}
+			}
+		}
+		
+		return sortedTabs
+	}
+	
+	private var initialTab: TabEnum {
+		switch defaultTab {
+		case "home": return visibleTabs.contains(.home) ? .home : visibleTabs.first ?? .settings
+		case "library": return visibleTabs.contains(.library) ? .library : visibleTabs.first ?? .settings
+		case "files": return visibleTabs.contains(.files) ? .files : visibleTabs.first ?? .settings
+		case "guides": return visibleTabs.contains(.guides) ? .guides : visibleTabs.first ?? .settings
+		case "settings": return .settings
+		default: return visibleTabs.first ?? .settings
+		}
 	}
 		
 	var body: some View {
-		TabView {
+		TabView(selection: $selectedTab) {
 			ForEach(visibleTabs, id: \.hashValue) { tab in
-				Tab(tab.title, systemImage: tab.icon) {
+				Tab(value: tab) {
 					TabEnum.view(for: tab)
+				} label: {
+					if hideTabLabels {
+						Image(systemName: tab.icon)
+					} else {
+						Label(tab.title, systemImage: tab.icon)
+					}
 				}
 			}
 			
@@ -84,6 +130,12 @@ struct ExtendedTabbarView: View {
 		}
 		.tabViewStyle(.sidebarAdaptable)
 		.tabViewCustomization($customization)
+		.onAppear {
+			if !hasSetInitialTab {
+				selectedTab = initialTab
+				hasSetInitialTab = true
+			}
+		}
 		.sheet(isPresented: $_isAddingPresenting) {
 			SourcesAddView()
 				.presentationDetents([.medium, .large])

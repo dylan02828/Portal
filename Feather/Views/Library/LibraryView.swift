@@ -115,10 +115,8 @@ struct LibraryView: View {
 					.presentationDragIndicator(.visible)
 					.compatPresentationRadius(21)
 			}
-			.sheet(item: $_selectedSigningAppPresenting) { app in
-				SigningView(app: app.base)
-					.presentationDetents([.medium, .large])
-					.presentationDragIndicator(.visible)
+			.fullScreenCover(item: $_selectedSigningAppPresenting) { app in
+				ModernSigningView(app: app.base)
 			}
 			.sheet(item: $_selectedInstallModifyAppPresenting) { app in
 				InstallModifyDialogView(app: app.base)

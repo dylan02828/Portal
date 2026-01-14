@@ -453,8 +453,23 @@ struct SourceAppsDetailView: View {
     // MARK: - Background
     @ViewBuilder
     private var backgroundView: some View {
-        Color(UIColor.systemBackground)
-            .ignoresSafeArea()
+        VStack(spacing: 0) {
+            LinearGradient(
+                colors: [
+                    dominantColor.opacity(0.3),
+                    dominantColor.opacity(0.2),
+                    dominantColor.opacity(0.1),
+                    dominantColor.opacity(0.05),
+                    Color(UIColor.systemBackground)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 350)
+            
+            Color(UIColor.systemBackground)
+        }
+        .ignoresSafeArea()
     }
     
     // MARK: - Toolbar

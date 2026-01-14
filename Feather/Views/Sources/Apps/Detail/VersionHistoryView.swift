@@ -39,7 +39,24 @@ struct VersionHistoryView: View {
                 .padding(.bottom, 30)
             }
         }
-        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+        .background(
+            VStack(spacing: 0) {
+                LinearGradient(
+                    colors: [
+                        dominantColor.opacity(0.25),
+                        dominantColor.opacity(0.15),
+                        dominantColor.opacity(0.05),
+                        Color(UIColor.systemGroupedBackground)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 300)
+                
+                Color(UIColor.systemGroupedBackground)
+            }
+            .ignoresSafeArea()
+        )
         .navigationTitle(.localized("Version History"))
         .navigationBarTitleDisplayMode(.large)
         .onAppear {
@@ -86,17 +103,6 @@ struct VersionHistoryView: View {
         }
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .background(
-            LinearGradient(
-                colors: [
-                    dominantColor.opacity(0.15),
-                    dominantColor.opacity(0.05),
-                    Color(UIColor.systemGroupedBackground)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
     }
     
     private var iconPlaceholder: some View {
