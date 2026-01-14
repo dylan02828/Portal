@@ -396,7 +396,7 @@ struct SourceAppsDetailView: View {
     
     // MARK: - Permissions Section
     @ViewBuilder
-    private func permissionsSection(_ permissions: ASRepository.App.AppPermissions) -> some View {
+    private func permissionsSection(_ permissions: ASRepository.AppPermissions) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(title: .localized("Permissions"), icon: "lock.shield")
             
@@ -527,194 +527,15 @@ struct SourceAppsDetailView: View {
 
 // MARK: - RoundedCorner Shape Helper
 struct RoundedCorner: Shape {
-	var radius: CGFloat = .infinity
-	var corners: UIRectCorner = .allCorners
-	
-	func path(in rect: CGRect) -> Path {
-		let path = UIBezierPath(
-			roundedRect: rect,
-			byRoundingCorners: corners,
-			cornerRadii: CGSize(width: radius, height: radius)
-		)
-		return Path(path.cgPath)
-	}
-}
-
-// MARK: - SourceAppsDetailView (Extension): Builders
-extension SourceAppsDetailView {
-	@available(iOS 18.0, *)
-	@ViewBuilder
-	private func _header() -> some View {
-		ZStack {
-			if let iconURL = source.currentIconURL {
-				LazyImage(url: iconURL) { state in
-					if let image = state.image {
-						image.resizable()
-							.aspectRatio(contentMode: .fill)
-							.frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
-							.clipped()
-					} else {
-						standardHeader
-					}
-				}
-			} else {
-				standardHeader
-			}
-			
-			NBVariableBlurView()
-				.rotationEffect(.degrees(-180))
-				.overlay(
-					LinearGradient(
-						gradient: Gradient(colors: [
-							Color.black.opacity(0.8),
-							Color.black.opacity(0)
-						]),
-						startPoint: .top,
-						endPoint: .bottom
-					)
-				)
-		}
-	}
-	
-	@ViewBuilder
-	private func _infoPills(app: ASRepository.App) -> some View {
-		let pillItems = _buildPills(from: app)
-		HStack(spacing: 6) {
-			ForEach(pillItems.indices, id: \.hashValue) { index in
-				let pill = pillItems[index]
-				NBPillView(
-					title: pill.title,
-					icon: pill.icon,
-					color: pill.color,
-					index: index,
-					count: pillItems.count
-				)
-			}
-		}
-	}
-	
-	private func _buildPills(from app: ASRepository.App) -> [NBPillItem] {
-		let pills: [NBPillItem] = []
-		return pills
-	}
-	
-	@ViewBuilder
-	private func _infoRow(title: String, value: String, icon: String? = nil) -> some View {
-		HStack(spacing: 12) {
-			if let icon = icon {
-				Image(systemName: icon)
-					.font(.system(size: 15))
-					.foregroundStyle(.secondary)
-					.frame(width: 24)
-			}
-			LabeledContent {
-				Text(value)
-					.foregroundStyle(.primary)
-			} label: {
-				Text(title)
-					.foregroundStyle(.secondary)
-			}
-		}
-		Divider()
-	}
-	
-	@ViewBuilder
-	private func modernInfoCard(title: String, value: String, icon: String, color: Color) -> some View {
-		VStack(alignment: .leading, spacing: 8) {
-			ZStack {
-				Circle()
-					.fill(color.opacity(0.15))
-					.frame(width: 32, height: 32)
-				Image(systemName: icon)
-					.font(.system(size: 14, weight: .semibold))
-					.foregroundStyle(color)
-			}
-			
-			VStack(alignment: .leading, spacing: 2) {
-				Text(title)
-					.font(.system(size: 10, weight: .medium))
-					.foregroundStyle(.secondary)
-					.textCase(.uppercase)
-				Text(value)
-					.font(.system(size: 13, weight: .semibold))
-					.foregroundStyle(.primary)
-					.lineLimit(1)
-			}
-		}
-		.frame(maxWidth: .infinity, alignment: .leading)
-		.padding(12)
-		.background(
-			RoundedRectangle(cornerRadius: 14, style: .continuous)
-				.fill(Color(.secondarySystemGroupedBackground))
-		)
-	}
-	
-	@ViewBuilder
-	private func _screenshots(screenshotURLs: [URL]) -> some View {
-		ScrollView(.horizontal, showsIndicators: false) {
-			HStack(spacing: 12) {
-				ForEach(screenshotURLs.indices, id: \.self) { index in
-					let url = screenshotURLs[index]
-					LazyImage(url: url) { state in
-						if let image = state.image {
-							image
-								.resizable()
-								.aspectRatio(contentMode: .fit)
-								.frame(
-									maxWidth: UIScreen.main.bounds.width - 32,
-									maxHeight: 400
-								)
-								.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-								.overlay {
-									RoundedRectangle(cornerRadius: 16, style: .continuous)
-										.strokeBorder(.gray.opacity(0.3), lineWidth: 1)
-								}
-								.onTapGesture {
-									_selectedScreenshotIndex = index
-									_isScreenshotPreviewPresented = true
-								}
-						}
-					}
-				}
-			}
-			.padding(.horizontal)
-			.compatScrollTargetLayout()
-		}
-		.compatScrollTargetBehavior()
-		.padding(.horizontal, -16)
-	}
-	
-	// MARK: - Color Extraction
-	private func extractDominantColor(from url: URL) {
-		Task {
-			guard let data = try? Data(contentsOf: url),
-				  let uiImage = UIImage(data: data),
-				  let cgImage = uiImage.cgImage else { return }
-			
-			let ciImage = CIImage(cgImage: cgImage)
-			let filter = CIFilter(name: "CIAreaAverage")
-			filter?.setValue(ciImage, forKey: kCIInputImageKey)
-			filter?.setValue(CIVector(cgRect: ciImage.extent), forKey: kCIInputExtentKey)
-			
-			guard let outputImage = filter?.outputImage else { return }
-			
-			var pixel = [UInt8](repeating: 0, count: 4)
-			CIContext().render(
-				outputImage,
-				toBitmap: &pixel,
-				rowBytes: 4,
-				bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-				format: .RGBA8,
-				colorSpace: nil
-			)
-			
-			let r = Double(pixel[0]) / 255.0
-			let g = Double(pixel[1]) / 255.0
-			let b = Double(pixel[2]) / 255.0
-			
-			await MainActor.run {
-				dominantColor = Color(red: r, green: g, blue: b)
-			}
-		}
-	}
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+    
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
+    }
 }

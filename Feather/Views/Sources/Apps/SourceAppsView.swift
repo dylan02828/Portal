@@ -376,7 +376,7 @@ struct SourceAppsView: View {
     }
     
     private func refreshSources() async {
-        await viewModel.fetchSources(FetchedResults<AltSource>._unconditionallyBridgeFromObjectiveC(NSArray() as! NSFetchedResultsController<AltSource>.FetchedResults), refresh: true)
+        // Simply reload the sources from the view model
         loadSources()
     }
     
